@@ -42,3 +42,7 @@ Thumbs.db
 
 # Configuration files with sensitive data
 Config/YTConfig.swift
+
+# Firebase configuration
+**/GoogleService-Info.plist
+!**/GoogleService-Info.example.plist
