@@ -27,9 +27,21 @@ struct EventDetailView: View {
                         .font(.body)
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "mappin.circle.fill")
-                            Text(event.location)
+                        if let locationUrl = event.locationUrl, let url = URL(string: locationUrl) {
+                            Button(action: {
+                                UIApplication.shared.open(url)
+                            }) {
+                                HStack {
+                                    Image(systemName: "mappin.circle.fill")
+                                    Text(event.location)
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                        } else {
+                            HStack {
+                                Image(systemName: "mappin.circle.fill")
+                                Text(event.location)
+                            }
                         }
                         
                         HStack {

@@ -5,6 +5,8 @@ struct MessagesView: View {
     @State private var upcomingLivestream: YouTubeService.Video?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var selectedVideo: YouTubeService.Video?
+    @State private var showingVideo = false
     
     var body: some View {
         NavigationView {
@@ -19,13 +21,23 @@ struct MessagesView: View {
                             .padding()
                     } else {
                         if let livestream = upcomingLivestream {
-                            VideoCardView(video: livestream)
-                                .padding(.horizontal)
+                            Button {
+                                selectedVideo = livestream
+                                showingVideo = true
+                            } label: {
+                                VideoCardView(video: livestream)
+                                    .padding(.horizontal)
+                            }
                         }
                         
                         if let sermon = latestSermon {
-                            VideoCardView(video: sermon)
-                                .padding(.horizontal)
+                            Button {
+                                selectedVideo = sermon
+                                showingVideo = true
+                            } label: {
+                                VideoCardView(video: sermon)
+                                    .padding(.horizontal)
+                            }
                         }
                     }
                 }
@@ -36,6 +48,12 @@ struct MessagesView: View {
             }
             .task {
                 await loadContent()
+            }
+            .sheet(isPresented: $showingVideo) {
+                if let video = selectedVideo {
+                    YouTubeView(videoId: video.id)
+                        .edgesIgnoringSafeArea(.all)
+                }
             }
         }
     }

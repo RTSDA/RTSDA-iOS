@@ -7,11 +7,15 @@ struct AboutUsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Church Logo
-                Image("sdalogo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 200)
-                    .accessibilityLabel("Rockville-Tolland SDA Church Logo")
+                HStack {
+                    Spacer()
+                    Image("sdalogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 200)
+                        .accessibilityLabel("Rockville-Tolland SDA Church Logo")
+                    Spacer()
+                }
                 
                 // Welcome Message
                 VStack(alignment: .leading, spacing: 16) {

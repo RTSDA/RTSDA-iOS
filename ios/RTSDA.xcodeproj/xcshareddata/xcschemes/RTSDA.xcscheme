@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "1BF6C1A02B091A2E00A2AF43"
+               BlueprintIdentifier = "EA3CC6352CE9369300105BBB"
                BuildableName = "RTSDA.app"
                BlueprintName = "RTSDA"
                ReferencedContainer = "container:RTSDA.xcodeproj">
@@ -34,7 +34,7 @@
             parallelizable = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "1BF6C1B02B091A2F00A2AF43"
+               BlueprintIdentifier = "EA3CC6452CE9369500105BBB"
                BuildableName = "RTSDATests.xctest"
                BlueprintName = "RTSDATests"
                ReferencedContainer = "container:RTSDA.xcodeproj">
@@ -45,7 +45,7 @@
             parallelizable = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "1BF6C1BA2B091A2F00A2AF43"
+               BlueprintIdentifier = "EA3CC64F2CE9369500105BBB"
                BuildableName = "RTSDAUITests.xctest"
                BlueprintName = "RTSDAUITests"
                ReferencedContainer = "container:RTSDA.xcodeproj">
@@ -67,7 +67,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "1BF6C1A02B091A2E00A2AF43"
+            BlueprintIdentifier = "EA3CC6352CE9369300105BBB"
             BuildableName = "RTSDA.app"
             BlueprintName = "RTSDA"
             ReferencedContainer = "container:RTSDA.xcodeproj">
@@ -84,7 +84,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "1BF6C1A02B091A2E00A2AF43"
+            BlueprintIdentifier = "EA3CC6352CE9369300105BBB"
             BuildableName = "RTSDA.app"
             BlueprintName = "RTSDA"
             ReferencedContainer = "container:RTSDA.xcodeproj">

@@ -37,57 +37,74 @@ Monorepo for the Rockville-Tolland Seventh-day Adventist Church platform, contai
 
 1. Install Xcode 15 or later
 2. Open `ios/RTSDA.xcodeproj`
-3. Configure environment variables in Xcode:
-   - Open scheme editor (Product > Scheme > Edit Scheme)
-   - Add `YOUTUBE_API_KEY` in both Run and Release schemes
-   - Get the API key from Google Cloud Console
 
-4. Firebase Setup:
-   - Get `GoogleService-Info.plist` from Firebase Console
-   - Add it to `ios/RTSDA/`
-   - Use `GoogleService-Info.example.plist` as a template
+3. Configure Firebase:
+   ```bash
+   # Copy the example Firebase config
+   cp ios/RTSDA/GoogleService-Info.example.plist ios/RTSDA/GoogleService-Info.plist
+   ```
+   - Get your own `GoogleService-Info.plist` from Firebase Console:
+     1. Go to [Firebase Console](https://console.firebase.google.com)
+     2. Select your project
+     3. Click the iOS app (com.rtsda.appr)
+     4. Download the config file
+     5. Replace the placeholder values in your local `GoogleService-Info.plist`
+   - **IMPORTANT**: Never commit `GoogleService-Info.plist` to git!
+
+4. Configure Remote Config:
+   - In Firebase Console, go to Remote Config
+   - Add parameter `youtube_api_key` with your YouTube API key
+   - This key will be automatically used by all apps
 
 5. Build and run the project
 
+### Android Setup
+
+1. Configure Firebase:
+   ```bash
+   # Copy the example Firebase config
+   cp android/app/google-services.example.json android/app/google-services.json
+   ```
+   - Get your own `google-services.json` from Firebase Console
+   - Replace the placeholder values
+   - **IMPORTANT**: Never commit `google-services.json` to git!
+
 ### Environment Variables
 
-The following environment variables are required:
+The following configuration is managed through Firebase Remote Config:
 
-- `YOUTUBE_API_KEY`: YouTube Data API v3 key
-  - Must be configured with proper bundle ID (`com.rtsda.appr`)
+- `youtube_api_key`: YouTube Data API v3 key
+  - Must be configured with proper bundle IDs
   - Required for sermon and livestream features
+  - Managed centrally through Firebase Console
 
 ### Sensitive Files
 
-The following files contain sensitive information and are not committed to git:
+The following files contain sensitive information and are **not** committed to git:
 
-1. `GoogleService-Info.plist` - Firebase configuration
-   - Contains API keys and project configuration
-   - Get from Firebase Console
-   - Example template provided in `GoogleService-Info.example.plist`
+1. `ios/RTSDA/GoogleService-Info.plist`
+   - Contains Firebase API keys and configuration
+   - Example template in `GoogleService-Info.example.plist`
+   - Get your own copy from Firebase Console
 
-2. Environment Variables
-   - YouTube API key is managed through Xcode schemes
-   - Required for both development and production
+2. `android/app/google-services.json`
+   - Contains Firebase configuration for Android
+   - Example template in `google-services.example.json`
+   - Get your own copy from Firebase Console
 
-## Common Development Tasks
+3. Firebase Remote Config
+   - Manages API keys and other sensitive configuration
+   - Set up through Firebase Console
+   - Changes are pushed to all apps automatically
 
-### Event System
+### Best Practices for API Keys
 
-The event system is implemented across all platforms with these common features:
-- Firebase Firestore for data storage
-- Server-side filtering using composite indexes
-- Recurring event generation
-- Real-time updates
-
-### Best Practices
-
-1. Keep implementations consistent across platforms
-2. Use server-side filtering when possible
-3. Follow platform-specific conventions
-4. Document all shared functionality
-5. Never commit sensitive information (API keys, credentials)
-6. Use environment variables for sensitive configuration
+1. **Never commit API keys or credentials to git**
+2. Use Firebase Remote Config for managing keys across platforms
+3. Keep example files up to date with placeholder values
+4. Document all required keys in README
+5. Use different keys for development and production
+6. Regularly rotate keys for security
 
 ## Contributing
 
@@ -99,6 +116,6 @@ The event system is implemented across all platforms with these common features:
 ## Security
 
 - Never commit API keys or sensitive credentials
-- Use environment variables for sensitive configuration
-- Keep Firebase configuration files private
+- Use Firebase Remote Config for sensitive values
+- Keep configuration files in `.gitignore`
 - Follow platform security best practices

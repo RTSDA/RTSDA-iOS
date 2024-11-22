@@ -4,9 +4,9 @@ import Foundation
 actor YouTubeService {
     static let shared = YouTubeService()
     
-    private let apiKey = YTConfig.YouTube.apiKey
+    private let configService = ConfigService.shared
     private let channelId = YTConfig.YouTube.channelId
-    private let bundleId = Bundle.main.bundleIdentifier ?? "com.rtsda.appr"
+    private let bundleId = Bundle.main.bundleIdentifier ?? "com.rtsda.app"
     
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -17,13 +17,7 @@ actor YouTubeService {
         return URLSession(configuration: config)
     }()
     
-    // Cache
-    private var cachedSermon: Video?
-    private var cachedLivestream: Video?
-    private var lastFetchTime: Date?
-    private let cacheDuration: TimeInterval = 7200 // 2 hours
-    private var quotaExceeded = false
-    private var quotaResetTime: Date?
+    private init() {}
     
     struct Video: Identifiable {
         let id: String
@@ -31,56 +25,39 @@ actor YouTubeService {
         let description: String
         let thumbnailURL: String
         let isLiveStream: Bool
+        let duration: String?
     }
     
     private func fetchWithRetry<T: Decodable>(request: URLRequest, retries: Int = 2) async throws -> T {
-        // Check if API key is configured
-        guard YTConfig.YouTube.isApiKeyConfigured else {
-            throw NSError(domain: "YouTubeAPI",
-                         code: -1,
-                         userInfo: [NSLocalizedDescriptionKey: "YouTube API key not configured. Please check app settings."])
-        }
-        
         var lastError: Error?
         
         for attempt in 0...retries {
             do {
                 if attempt > 0 {
                     try await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(attempt))) * 1_000_000_000)
-                    print("Retry attempt \(attempt)")
                 }
                 
                 let (data, response) = try await session.data(for: request)
                 
                 if let httpResponse = response as? HTTPURLResponse {
-                    print("YouTube API Response - Status code: \(httpResponse.statusCode)")
-                    
-                    if httpResponse.statusCode == 429 { // Too Many Requests
-                        if attempt < retries {
-                            continue
-                        }
-                    }
-                    
                     if httpResponse.statusCode != 200 {
                         if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                           let error = errorJson["error"] as? [String: Any] {
-                            print("YouTube API Error Details: \(error)")
-                            
-                            if let message = error["message"] as? String {
-                                throw NSError(domain: "YouTubeAPI", 
-                                            code: httpResponse.statusCode,
-                                            userInfo: [NSLocalizedDescriptionKey: message])
-                            }
+                           let error = errorJson["error"] as? [String: Any],
+                           let message = error["message"] as? String {
+                            print("YouTube API Error: \(message)")
+                            throw NSError(domain: "YouTubeAPI", 
+                                        code: httpResponse.statusCode,
+                                        userInfo: [NSLocalizedDescriptionKey: message])
                         }
                     }
                 }
                 
-                let decoder = JSONDecoder()
-                return try decoder.decode(T.self, from: data)
+                return try JSONDecoder().decode(T.self, from: data)
             } catch {
                 lastError = error
+                print("API Error: \(error)")
                 if attempt == retries {
-                    throw lastError!
+                    throw error
                 }
             }
         }
@@ -88,136 +65,137 @@ actor YouTubeService {
         throw lastError!
     }
     
+    private func isShortVideo(duration: String?) -> Bool {
+        guard let duration = duration else { return false }
+        
+        // Convert ISO 8601 duration to seconds
+        let pattern = #"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"#
+        let regex = try! NSRegularExpression(pattern: pattern)
+        let range = NSRange(duration.startIndex..<duration.endIndex, in: duration)
+        
+        guard let match = regex.firstMatch(in: duration, range: range) else { return false }
+        
+        let hours = match.range(at: 1).location != NSNotFound ? Int(duration[Range(match.range(at: 1), in: duration)!]) ?? 0 : 0
+        let minutes = match.range(at: 2).location != NSNotFound ? Int(duration[Range(match.range(at: 2), in: duration)!]) ?? 0 : 0
+        let seconds = match.range(at: 3).location != NSNotFound ? Int(duration[Range(match.range(at: 3), in: duration)!]) ?? 0 : 0
+        
+        let totalSeconds = hours * 3600 + minutes * 60 + seconds
+        let isShort = totalSeconds < 61
+        if isShort {
+            print("Video is a Short (duration: \(duration))")
+        }
+        return isShort
+    }
+    
+    private func isWorshipService(title: String) -> Bool {
+        let isWorship = title.localizedCaseInsensitiveContains("Worship Service")
+        if isWorship {
+            print("Found Worship Service: \(title)")
+        }
+        return isWorship
+    }
+    
     func fetchLatestSermon() async throws -> Video? {
-        // If quota is exceeded and reset time hasn't passed, return cached data
-        if quotaExceeded {
-            if let resetTime = quotaResetTime, Date() < resetTime {
-                print("Quota still exceeded, returning cached sermon")
-                return cachedSermon
-            } else {
-                // Reset quota exceeded state if reset time has passed
-                quotaExceeded = false
-                quotaResetTime = nil
-            }
+        print("Fetching latest sermon...")
+        // Get API key from Remote Config
+        let apiKey = await configService.getString(forKey: ConfigService.Keys.youtubeApiKey)
+        
+        // First, search for videos - removed eventType=completed to get all videos
+        let searchUrlString = "https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=\(channelId)&maxResults=25&order=date&type=video&key=\(apiKey)"
+        guard let searchUrl = URL(string: searchUrlString) else { return nil }
+        
+        let searchRequest = URLRequest(url: searchUrl)
+        let searchResponse: SearchResponse = try await fetchWithRetry(request: searchRequest)
+        
+        print("Found \(searchResponse.items.count) videos in search")
+        
+        // Get video details to check duration
+        let videoIds = searchResponse.items.map { $0.id.videoId }.joined(separator: ",")
+        let detailsUrlString = "https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet,status&id=\(videoIds)&key=\(apiKey)"
+        guard let detailsUrl = URL(string: detailsUrlString) else { return nil }
+        
+        let detailsRequest = URLRequest(url: detailsUrl)
+        let detailsResponse: VideoListResponse = try await fetchWithRetry(request: detailsRequest)
+        
+        print("Got details for \(detailsResponse.items.count) videos")
+        
+        // Print all video titles and durations for debugging
+        for video in detailsResponse.items {
+            print("\nVideo: \(video.snippet.title)")
+            print("Duration: \(video.contentDetails.duration)")
+            print("Is Short: \(isShortVideo(duration: video.contentDetails.duration))")
+            print("Is Worship: \(isWorshipService(title: video.snippet.title))")
+            print("LiveBroadcastContent: \(video.snippet.liveBroadcastContent)")
         }
         
-        print("Bundle ID: \(bundleId)")
-        
-        // Return cached result if within cache duration
-        if let lastFetch = lastFetchTime,
-           let cached = cachedSermon,
-           Date().timeIntervalSince(lastFetch) < cacheDuration {
-            print("Returning cached sermon")
-            return cached
+        // Find the first video that's not a Short, not a Worship Service, and not a livestream
+        guard let video = detailsResponse.items.first(where: { 
+            !isShortVideo(duration: $0.contentDetails.duration) && 
+            !isWorshipService(title: $0.snippet.title) &&
+            $0.snippet.liveBroadcastContent == "none"  // Filter out live streams
+        }) else {
+            print("No suitable videos found after filtering")
+            return nil
         }
         
-        var urlComponents = URLComponents(string: "https://www.googleapis.com/youtube/v3/search")!
-        urlComponents.queryItems = [
-            URLQueryItem(name: "key", value: apiKey),
-            URLQueryItem(name: "channelId", value: channelId),
-            URLQueryItem(name: "part", value: "snippet"),
-            URLQueryItem(name: "type", value: "video"),
-            URLQueryItem(name: "order", value: "date"),
-            URLQueryItem(name: "maxResults", value: "10")
-        ]
+        print("Selected video: \(video.snippet.title)")
         
-        guard let url = urlComponents.url else {
-            throw URLError(.badURL)
-        }
-        
-        var request = URLRequest(url: url)
-        request.setValue(bundleId, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
-        
-        let searchResponse: SearchResponse = try await fetchWithRetry(request: request)
-        
-        let sermons = searchResponse.items.filter { item in
-            let title = item.snippet.title.uppercased()
-            let description = item.snippet.description.uppercased()
-            
-            let sermonKeywords = ["SERMON", "MESSAGE", "PASTOR", "PREACHING"]
-            let excludedTerms = ["LIVE", "LIVESTREAM", "WORSHIP SERVICE"]
-            
-            return sermonKeywords.contains { title.contains($0) || description.contains($0) }
-                && !excludedTerms.contains { title.contains($0) }
-        }
-        
-        if let sermon = sermons.first {
-            let video = Video(
-                id: sermon.id.videoId,
-                title: sermon.snippet.title,
-                description: sermon.snippet.description,
-                thumbnailURL: sermon.snippet.thumbnails.high.url,
-                isLiveStream: false
-            )
-            
-            cachedSermon = video
-            lastFetchTime = Date()
-            return video
-        }
-        
-        return nil
+        return Video(
+            id: video.id,
+            title: video.snippet.title,
+            description: video.snippet.description,
+            thumbnailURL: video.snippet.thumbnails.high?.url ?? video.snippet.thumbnails.default.url,
+            isLiveStream: false,
+            duration: video.contentDetails.duration
+        )
     }
     
     func fetchUpcomingLivestream() async throws -> Video? {
-        print("Bundle ID: \(bundleId)")
+        let apiKey = await configService.getString(forKey: ConfigService.Keys.youtubeApiKey)
+        let urlString = "https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=\(channelId)&eventType=upcoming&maxResults=1&order=date&type=video&key=\(apiKey)"
+        guard let url = URL(string: urlString) else { return nil }
         
-        // Return cached result if within cache duration
-        if let lastFetch = lastFetchTime,
-           let cached = cachedLivestream,
-           Date().timeIntervalSince(lastFetch) < cacheDuration {
-            print("Returning cached livestream")
-            return cached
+        let request = URLRequest(url: url)
+        let response: SearchResponse = try await fetchWithRetry(request: request)
+        
+        guard let item = response.items.first else { return nil }
+        
+        return Video(
+            id: item.id.videoId,
+            title: item.snippet.title,
+            description: item.snippet.description,
+            thumbnailURL: item.snippet.thumbnails.high?.url ?? item.snippet.thumbnails.default.url,
+            isLiveStream: true,
+            duration: nil
+        )
+    }
+    
+    func extractVideoURL(from videoId: String) async throws -> URL {
+        let apiKey = await configService.getString(forKey: ConfigService.Keys.youtubeApiKey)
+        let infoURL = "https://www.googleapis.com/youtube/v3/videos?part=player&id=\(videoId)&key=\(apiKey)"
+        guard let url = URL(string: infoURL) else {
+            throw NSError(domain: "YouTubeService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
         }
         
-        var urlComponents = URLComponents(string: "https://www.googleapis.com/youtube/v3/search")!
-        urlComponents.queryItems = [
-            URLQueryItem(name: "key", value: apiKey),
-            URLQueryItem(name: "channelId", value: channelId),
-            URLQueryItem(name: "part", value: "snippet"),
-            URLQueryItem(name: "eventType", value: "upcoming"),
-            URLQueryItem(name: "type", value: "video"),
-            URLQueryItem(name: "order", value: "date"),
-            URLQueryItem(name: "maxResults", value: "1")
-        ]
+        let request = URLRequest(url: url)
+        let response: VideoPlayerResponse = try await fetchWithRetry(request: request)
         
-        guard let url = urlComponents.url else {
-            throw URLError(.badURL)
+        guard let item = response.items.first else {
+            throw NSError(domain: "YouTubeService", code: -1, userInfo: [NSLocalizedDescriptionKey: "No video found"])
         }
         
-        var request = URLRequest(url: url)
-        request.setValue(bundleId, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
-        
-        let searchResponse: SearchResponse = try await fetchWithRetry(request: request)
-        
-        if let livestream = searchResponse.items.first {
-            let video = Video(
-                id: livestream.id.videoId,
-                title: livestream.snippet.title,
-                description: livestream.snippet.description,
-                thumbnailURL: livestream.snippet.thumbnails.high.url,
-                isLiveStream: true
-            )
-            
-            cachedLivestream = video
-            lastFetchTime = Date()
-            return video
+        // Extract video URL from player
+        guard let videoURL = URL(string: "https://www.youtube.com/watch?v=\(videoId)") else {
+            throw NSError(domain: "YouTubeService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid video URL"])
         }
         
-        return nil
+        return videoURL
     }
 }
 
 // Response models
 private struct SearchResponse: Codable {
-    let kind: String
-    let etag: String
-    let pageInfo: PageInfo
     let items: [SearchItem]
-}
-
-private struct PageInfo: Codable {
-    let totalResults: Int
-    let resultsPerPage: Int
 }
 
 private struct SearchItem: Codable {
@@ -226,7 +204,6 @@ private struct SearchItem: Codable {
 }
 
 private struct VideoId: Codable {
-    let kind: String
     let videoId: String
 }
 
@@ -234,12 +211,40 @@ private struct Snippet: Codable {
     let title: String
     let description: String
     let thumbnails: Thumbnails
+    let liveBroadcastContent: String
 }
 
 private struct Thumbnails: Codable {
-    let high: Thumbnail
+    let `default`: Thumbnail
+    let high: Thumbnail?
 }
 
 private struct Thumbnail: Codable {
     let url: String
+}
+
+private struct VideoListResponse: Codable {
+    let items: [VideoItem]
+}
+
+private struct VideoItem: Codable {
+    let id: String
+    let snippet: Snippet
+    let contentDetails: ContentDetails
+}
+
+private struct ContentDetails: Codable {
+    let duration: String
+}
+
+private struct VideoPlayerResponse: Codable {
+    let items: [VideoPlayerItem]
+}
+
+private struct VideoPlayerItem: Codable {
+    let player: PlayerDetails
+}
+
+private struct PlayerDetails: Codable {
+    let embedHtml: String
 }

@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseFirestore
+import FirebaseRemoteConfig
 
 // AppDelegate for Firebase configuration
 class AppDelegate: NSObject, UIApplicationDelegate {
@@ -9,12 +10,22 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseApp.configure()
         
         // Configure Firestore settings
-        let settings = FirestoreSettings()
-        settings.isPersistenceEnabled = true
-        settings.cacheSizeBytes = FirestoreCacheSizeUnlimited
+        let firestoreSettings = FirestoreSettings()
+        firestoreSettings.cacheSettings = PersistentCacheSettings()
         
         let db = Firestore.firestore()
-        db.settings = settings
+        db.settings = firestoreSettings
+        
+        // Configure Remote Config
+        let remoteConfig = RemoteConfig.remoteConfig()
+        let remoteConfigSettings = RemoteConfigSettings()
+        remoteConfigSettings.minimumFetchInterval = 0 // For development, remove this line for production
+        remoteConfig.configSettings = remoteConfigSettings
+        
+        // Set default values
+        remoteConfig.setDefaults([
+            "youtube_api_key": "YOUR_DEV_API_KEY" as NSObject
+        ])
         
         return true
     }
@@ -47,6 +58,13 @@ struct RTSDAApp: App {
                         }
                 } else {
                     ContentView()
+                        .task {
+                            do {
+                                try await ConfigService.shared.fetchConfig()
+                            } catch {
+                                print("Error fetching remote config: \(error)")
+                            }
+                        }
                         .transition(.opacity)
                 }
             }

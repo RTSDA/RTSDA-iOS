@@ -7,8 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EA21CE102CF0F56500AC1B78 /* YouTubePlayerKit in Frameworks */ = {isa = PBXBuildFile; productRef = EA21CE0F2CF0F56500AC1B78 /* YouTubePlayerKit */; };
 		EA35E9612CEABA2000463B11 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = EA35E9602CEABA2000463B11 /* FirebaseAuth */; };
 		EA35E9632CEABA2000463B11 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = EA35E9622CEABA2000463B11 /* FirebaseFirestore */; };
+		EA67F5F12CF131ED00590ED2 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = EA67F5F02CF131ED00590ED2 /* FirebaseRemoteConfig */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,9 +31,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		EA21CDC22CF0F53800AC1B78 /* RTSDA.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = RTSDA.xcodeproj; sourceTree = "<group>"; };
 		EA3CC6362CE9369300105BBB /* RTSDA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RTSDA.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA3CC6462CE9369500105BBB /* RTSDATests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RTSDATests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA3CC6502CE9369500105BBB /* RTSDAUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RTSDAUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EA67F5A12CF0F64300590ED2 /* RTSDA.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = RTSDA.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -72,6 +76,8 @@
 			files = (
 				EA35E9612CEABA2000463B11 /* FirebaseAuth in Frameworks */,
 				EA35E9632CEABA2000463B11 /* FirebaseFirestore in Frameworks */,
+				EA21CE102CF0F56500AC1B78 /* YouTubePlayerKit in Frameworks */,
+				EA67F5F12CF131ED00590ED2 /* FirebaseRemoteConfig in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +98,11 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		EA21CDC32CF0F53800AC1B78 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		EA3CC62D2CE9369300105BBB = {
 			isa = PBXGroup;
 			children = (
@@ -109,6 +120,11 @@
 				EA3CC6462CE9369500105BBB /* RTSDATests.xctest */,
 				EA3CC6502CE9369500105BBB /* RTSDAUITests.xctest */,
 			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EA67F5A22CF0F64300590ED2 /* Products */ = {
+			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -134,6 +150,8 @@
 			packageProductDependencies = (
 				EA35E9602CEABA2000463B11 /* FirebaseAuth */,
 				EA35E9622CEABA2000463B11 /* FirebaseFirestore */,
+				EA21CE0F2CF0F56500AC1B78 /* YouTubePlayerKit */,
+				EA67F5F02CF131ED00590ED2 /* FirebaseRemoteConfig */,
 			);
 			productName = RTSDA;
 			productReference = EA3CC6362CE9369300105BBB /* RTSDA.app */;
@@ -219,10 +237,21 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				EA35E95F2CEABA2000463B11 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				EA21CE0E2CF0F56500AC1B78 /* XCRemoteSwiftPackageReference "YouTubePlayerKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EA3CC6372CE9369300105BBB /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = EA67F5A22CF0F64300590ED2 /* Products */;
+					ProjectRef = EA67F5A12CF0F64300590ED2 /* RTSDA.xcodeproj */;
+				},
+				{
+					ProductGroup = EA21CDC32CF0F53800AC1B78 /* Products */;
+					ProjectRef = EA21CDC22CF0F53800AC1B78 /* RTSDA.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				EA3CC6352CE9369300105BBB /* RTSDA */,
@@ -591,6 +620,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		EA21CE0E2CF0F56500AC1B78 /* XCRemoteSwiftPackageReference "YouTubePlayerKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SvenTiigi/YouTubePlayerKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.9.0;
+			};
+		};
 		EA35E95F2CEABA2000463B11 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -602,6 +639,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		EA21CE0F2CF0F56500AC1B78 /* YouTubePlayerKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EA21CE0E2CF0F56500AC1B78 /* XCRemoteSwiftPackageReference "YouTubePlayerKit" */;
+			productName = YouTubePlayerKit;
+		};
 		EA35E9602CEABA2000463B11 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EA35E95F2CEABA2000463B11 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
@@ -611,6 +653,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = EA35E95F2CEABA2000463B11 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		EA67F5F02CF131ED00590ED2 /* FirebaseRemoteConfig */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EA35E95F2CEABA2000463B11 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseRemoteConfig;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

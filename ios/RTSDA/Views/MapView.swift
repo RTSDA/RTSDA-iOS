@@ -9,7 +9,7 @@ struct MapView: View {
     @State private var errorMessage: String?
     @State private var showingError = false
     
-    private let churchLocation = CLLocationCoordinate2D(latitude: 41.87199, longitude: -72.43731)
+    private let churchLocation = CLLocationCoordinate2D(latitude: 41.871742, longitude: -72.437397)
     
     var body: some View {
         NavigationStack {
