@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key></key>
+	<string></string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsForMedia</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsUsageDescription</key>
+		<dict/>
+	</dict>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>We need access to your calendar to add church events.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>We need access to your calendar to add church events.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>com.googleusercontent.apps.96814818762-k7l0r7no343dms51ss59q6c5dslujcu7</string>
+		<string>fb1440555266255436</string>
+		<string>com.googleusercontent.apps.443920152945-d0kf5h2dubt0jbcntq8l0qeg6lbpgn60</string>
+		<string>Hymnal.XF.iOS</string>
+		<string>hymnal-xf</string>
+		<string>hymnalxf</string>
+		<string>itms-apps</string>
+	</array>
+</dict>
+</plist>

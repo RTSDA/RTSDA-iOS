@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Event Details - Rockville-Tolland SDA Church</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/main.css">
+    
+    <!-- Import Firebase using modules -->
+    <script type="module">
+        import { db } from './js/firebase-config.js';
+        import { doc, getDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+        // Helper function to format recurrence type
+        function formatRecurrenceType(type) {
+            if (!type || type === 'NONE') return '';
+            return type.split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ');
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const eventContainer = document.getElementById('event-container');
+            const urlParams = new URLSearchParams(window.location.search);
+            const eventId = urlParams.get('id');
+            
+            if (!eventId) {
+                window.location.href = 'events.html';
+                return;
+            }
+            
+            try {
+                const docRef = doc(db, 'events', eventId);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const event = { id: docSnap.id, ...docSnap.data() };
+                    console.log('Event data:', event); // Debug log
+                    
+                    // Handle all possible date formats
+                    let startDate;
+                    if (event.startDate instanceof Timestamp) {
+                        startDate = event.startDate.toDate();
+                    } else if (typeof event.startDate === 'number') {
+                        startDate = new Date(event.startDate * 1000);
+                    } else if (event.startDate?.seconds) {
+                        startDate = new Date(event.startDate.seconds * 1000);
+                    } else if (event.startDate) {
+                        startDate = new Date(event.startDate);
+                    } else {
+                        console.error('Invalid or missing startDate:', event.startDate);
+                        throw new Error('Invalid event date');
+                    }
+                    
+                    const recurrenceText = formatRecurrenceType(event.recurrenceType);
+                    
+                    eventContainer.innerHTML = `
+                        <div class="row">
+                            <div class="column large-12">
+                                <h1 class="display-1">${event.title}</h1>
+                                
+                                <div class="event-details">
+                                    <p class="event-description">${event.description || 'No description available.'}</p>
+                                    
+                                    <ul class="events-list__meta">
+                                        <li class="events-list__meta-date">
+                                            ${startDate.toLocaleDateString('en-US', { 
+                                                weekday: 'long', 
+                                                year: 'numeric', 
+                                                month: 'long', 
+                                                day: 'numeric' 
+                                            })}
+                                        </li>
+                                        <li class="events-list__meta-time">
+                                            ${startDate.toLocaleTimeString('en-US', { 
+                                                hour: 'numeric', 
+                                                minute: '2-digit' 
+                                            })}${event.endTime ? ` - ${event.endTime}` : ''}
+                                        </li>
+                                        <li class="events-list__meta-location">
+                                            ${event.location || 'Location TBD'}
+                                            ${event.locationUrl ? 
+                                                `<br><a href="${event.locationUrl}" target="_blank">View on Map</a>` : 
+                                                ''}
+                                        </li>
+                                        ${recurrenceText ? 
+                                            `<li class="events-list__meta-recurrence">${recurrenceText}</li>` : 
+                                            ''}
+                                    </ul>
+                                </div>
+                                
+                                <div class="event-actions">
+                                    <a href="events.html" class="btn btn--stroke">Back to Events</a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    window.location.href = 'events.html';
+                }
+            } catch (error) {
+                console.error("Error fetching event: ", error);
+                eventContainer.innerHTML = `
+                    <div class="row">
+                        <div class="column large-12">
+                            <h1 class="display-1">Error</h1>
+                            <p>Error loading event. Please try again later.</p>
+                            <div class="event-actions">
+                                <a href="events.html" class="btn btn--stroke">Back to Events</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</head>
+<body id="top">
+    <!-- preloader -->
+    <div id="preloader">
+        <div id="loader" class="dots-jump">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+
+    <!-- header -->
+    <header class="s-header">
+        <div class="header-logo">
+            <a class="site-logo" href="index.html">
+                <img id=logo src="sdalogo.webp" alt="Homepage">
+            </a>
+        </div>
+
+        <nav class="header-nav-wrap">
+            <ul class="header-nav">
+                <li><a href="index.html" title="Home">Home</a></li>
+                <li><a href="about.html" title="About">About</a></li>
+                <li class="current"><a href="events.html" title="Services">Events</a></li>
+                <li><a href="contact.html" title="Contact us">Contact</a></li>
+                <li><a href="ministries.html" title="Ministries">Ministries</a></li>
+                <li><a href="https://rtsda.updates.church" target="_blank" title="Bulletin">Bulletin</a></li>
+                <li><a href="https://adventistgiving.org/donate/AN4MJG" target="_blank" title="Online Giving">Online Giving</a></li>
+                <li><a href="livestream.html" title="Live Stream">Live Stream</a></li>
+            </ul>
+        </nav>
+
+        <a class="header-menu-toggle" href="#0"><span>Menu</span></a>
+    </header>
+
+    <!-- event details -->
+    <section class="s-content">
+        <div id="event-container">
+            <!-- Event details will be dynamically inserted here -->
+        </div>
+    </section>
+
+    <!-- footer -->
+    <footer class="s-footer">
+        <div class="row">
+            <div class="column large-4 medium-6 w-1000-stack s-footer__social-block">
+                <ul class="s-footer__social">
+                    <li><a href="https://www.facebook.com/rtsdachurch/"><i class="fab fa-facebook-f" aria-hidden="true"></i></a></li>
+                    <li><a href="https://www.youtube.com/@rtsdachurch"><i class="fab fa-youtube" aria-hidden="true"></i></a></li>
+                </ul>
+            </div>
+
+            <div class="column large-7 medium-6 w-1000-stack ss-copyright">
+                <span> Rockville-Tolland SDA Church 2023</span> 
+                <span>Design by <a href="https://www.styleshout.com/">StyleShout</a></span>
+            </div>
+        </div>
+
+        <div class="ss-go-top">
+            <a class="smoothscroll" title="Back to Top" href="#top">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 4h12v2H6zm5 10v6h2v-6h5l-6-6-6 6z"/></svg>
+            </a>
+        </div>
+    </footer>
+
+    <!-- Java Script -->
+    <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="js/plugins.js"></script>
+    <script src="js/main.js"></script>
+    <script src="https://kit.fontawesome.com/51835a1a67.js" crossorigin="anonymous"></script>
+</body>
+</html>
