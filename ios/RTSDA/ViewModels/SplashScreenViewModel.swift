@@ -6,6 +6,7 @@ class SplashScreenViewModel: ObservableObject {
     @Published var verseOfTheDay: BibleVerse?
     @Published var error: String?
     @Published var theme: String = ""
+    @Published var isLoaded = false
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -45,9 +46,11 @@ class SplashScreenViewModel: ObservableObject {
             let verseResponse = try JSONDecoder().decode(BibleVerseResponse.self, from: data)
             self.verseOfTheDay = verseResponse.data
             self.error = nil
+            self.isLoaded = true
         } catch {
             print("[Bible API] Error fetching verse: \(error)")
             self.error = error.localizedDescription
+            self.isLoaded = true
         }
     }
     

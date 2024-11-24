@@ -67,8 +67,6 @@
 		<string>youtubei.googleapis.com</string>
 		<string>www.youtube-nocookie.com</string>
 	</array>
-	<key>UIApplicationExitsOnSuspend</key>
-	<false/>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.rtsda.appr.fetch</string>
@@ -85,13 +83,9 @@
 	</dict>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
+		<string>youversion</string>
 		<string>com.googleusercontent.apps.96814818762-k7l0r7no343dms51ss59q6c5dslujcu7</string>
-		<string>fb1440555266255436</string>
-		<string>com.googleusercontent.apps.443920152945-d0kf5h2dubt0jbcntq8l0qeg6lbpgn60</string>
-		<string>Hymnal.XF.iOS</string>
-		<string>hymnal-xf</string>
-		<string>hymnalxf</string>
-		<string>itms-apps</string>
+		<string>egw-writings</string>
 	</array>
 	<key>CFBundleIdentifier</key>
 	<string>com.rtsda.appr</string>
@@ -109,6 +103,6 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>AVInitialRouteSharingPolicy</key>
-	<string>LongForm</string>
+	<string>LongFormVideo</string>
 </dict>
 </plist>

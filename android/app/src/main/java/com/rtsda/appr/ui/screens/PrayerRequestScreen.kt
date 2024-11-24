@@ -6,10 +6,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,14 +22,7 @@ import com.rtsda.appr.viewmodels.PrayerRequestViewModel
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-
-enum class RequestType {
-    PERSONAL,
-    FAMILY,
-    FRIENDS,
-    COMMUNITY,
-    OTHER
-}
+import com.rtsda.appr.data.model.RequestType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,59 +30,10 @@ fun PrayerRequestScreen(
     onDismiss: () -> Unit,
     viewModel: PrayerRequestViewModel = hiltViewModel()
 ) {
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var emailError by remember { mutableStateOf<String?>(null) }
-    var phoneError by remember { mutableStateOf<String?>(null) }
-    var request by remember { mutableStateOf("") }
-    var isPrivate by remember { mutableStateOf(false) }
-    var selectedType by remember { mutableStateOf(RequestType.PERSONAL) }
+    val state by viewModel.state.collectAsState()
     var showError by remember { mutableStateOf(false) }
     var showSuccess by remember { mutableStateOf(false) }
-    
     val focusManager = LocalFocusManager.current
-    val state by viewModel.state.collectAsState()
-
-    // Email validation function
-    fun isValidEmail(email: String): Boolean {
-        val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$"
-        return email.matches(emailRegex.toRegex())
-    }
-
-    // Phone validation function
-    fun isValidPhone(phone: String): Boolean {
-        if (phone.isEmpty()) return true // Optional field
-        // Allow formats: (123) 456-7890, 123-456-7890, 1234567890
-        val phoneRegex = """^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$""".toRegex()
-        return phone.matches(phoneRegex)
-    }
-
-    fun formatPhoneNumber(input: String): String {
-        // Strip all non-digits
-        val digitsOnly = input.replace(Regex("[^0-9]"), "")
-        
-        // Format as (XXX) XXX-XXXX if we have enough digits
-        return when {
-            digitsOnly.isEmpty() -> ""
-            digitsOnly.length <= 3 -> "(${digitsOnly})"
-            digitsOnly.length <= 6 -> "(${digitsOnly.substring(0,3)}) ${digitsOnly.substring(3)}"
-            digitsOnly.length <= 10 -> {
-                val area = digitsOnly.substring(0,3)
-                val prefix = digitsOnly.substring(3,6)
-                val number = digitsOnly.substring(6)
-                "($area) $prefix-$number"
-            }
-            else -> {
-                // Truncate to 10 digits if longer
-                val truncated = digitsOnly.substring(0, 10)
-                val area = truncated.substring(0,3)
-                val prefix = truncated.substring(3,6)
-                val number = truncated.substring(6)
-                "($area) $prefix-$number"
-            }
-        }
-    }
 
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
@@ -119,7 +60,6 @@ fun PrayerRequestScreen(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Top Bar
             TopAppBar(
                 title = { Text("Prayer Request") },
                 navigationIcon = {
@@ -129,7 +69,6 @@ fun PrayerRequestScreen(
                 }
             )
 
-            // Form Content
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -149,12 +88,12 @@ fun PrayerRequestScreen(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Switch(
-                        checked = isPrivate,
-                        onCheckedChange = { isPrivate = it }
+                        checked = state.isAnonymous,
+                        onCheckedChange = { viewModel.updateIsAnonymous(it) }
                     )
                 }
 
-                if (isPrivate) {
+                if (state.isAnonymous) {
                     Text(
                         text = "Your prayer request will be submitted anonymously",
                         style = MaterialTheme.typography.bodyMedium,
@@ -163,10 +102,10 @@ fun PrayerRequestScreen(
                 }
 
                 // Name Field (only show if not anonymous)
-                if (!isPrivate) {
+                if (!state.isAnonymous) {
                     OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
+                        value = state.name,
+                        onValueChange = { viewModel.updateName(it) },
                         label = { Text("Name") },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Name") },
                         modifier = Modifier
@@ -178,19 +117,16 @@ fun PrayerRequestScreen(
                         keyboardActions = KeyboardActions(
                             onNext = { focusManager.moveFocus(FocusDirection.Next) }
                         ),
-                        singleLine = true
+                        singleLine = true,
+                        isError = state.nameError != null,
+                        supportingText = { state.nameError?.let { Text(it) } }
                     )
                 }
 
                 // Email Field
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { 
-                        email = it
-                        emailError = if (it.isNotEmpty() && !isValidEmail(it)) {
-                            "Please enter a valid email address"
-                        } else null
-                    },
+                    value = state.email,
+                    onValueChange = { viewModel.updateEmail(it) },
                     label = { Text("Email") },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email") },
                     modifier = Modifier
@@ -203,18 +139,15 @@ fun PrayerRequestScreen(
                     keyboardActions = KeyboardActions(
                         onNext = { focusManager.moveFocus(FocusDirection.Next) }
                     ),
-                    isError = emailError != null,
-                    supportingText = { emailError?.let { Text(it) } },
+                    isError = state.emailError != null,
+                    supportingText = { state.emailError?.let { Text(it) } },
                     singleLine = true
                 )
 
                 // Phone Field
                 OutlinedTextField(
-                    value = phone,
-                    onValueChange = { newValue ->
-                        phone = formatPhoneNumber(newValue)
-                        phoneError = if (!isValidPhone(phone)) "Please enter a valid phone number" else null
-                    },
+                    value = state.phone,
+                    onValueChange = { viewModel.updatePhone(it) },
                     label = { Text("Phone (Optional)") },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Phone,
@@ -224,8 +157,8 @@ fun PrayerRequestScreen(
                         onNext = { focusManager.moveFocus(FocusDirection.Down) }
                     ),
                     singleLine = true,
-                    isError = phoneError != null,
-                    supportingText = phoneError?.let { { Text(it) } },
+                    isError = state.phoneError != null,
+                    supportingText = state.phoneError?.let { { Text(it) } },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Phone,
@@ -252,8 +185,8 @@ fun PrayerRequestScreen(
                 ) {
                     items(RequestType.values()) { type ->
                         FilterChip(
-                            selected = selectedType == type,
-                            onClick = { selectedType = type },
+                            selected = state.requestType == type,
+                            onClick = { viewModel.updateRequestType(type) },
                             label = { Text(type.toString()) },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -264,8 +197,8 @@ fun PrayerRequestScreen(
 
                 // Prayer Request Field
                 OutlinedTextField(
-                    value = request,
-                    onValueChange = { request = it },
+                    value = state.request,
+                    onValueChange = { viewModel.updateRequest(it) },
                     label = { Text("Prayer Request") },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -276,33 +209,53 @@ fun PrayerRequestScreen(
                     ),
                     keyboardActions = KeyboardActions(
                         onDone = { focusManager.clearFocus() }
-                    )
+                    ),
+                    isError = state.requestError != null,
+                    supportingText = { state.requestError?.let { Text(it) } }
                 )
+
+                // Private Toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Make Private",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Switch(
+                        checked = state.isPrivate,
+                        onCheckedChange = { viewModel.updateIsPrivate(it) }
+                    )
+                }
+
+                if (state.isPrivate) {
+                    Text(
+                        text = "Only admins will be able to see this prayer request",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 // Submit Button
                 Button(
-                    onClick = {
-                        if (
-                            (isPrivate || name.isNotEmpty()) && // Name only required if not anonymous
-                            (email.isEmpty() || emailError == null) && // Email valid if provided
-                            phoneError == null && // Phone valid if provided
-                            request.isNotEmpty() // Request is required
-                        ) {
-                            viewModel.submitPrayerRequest(
-                                name = if (isPrivate) "Anonymous" else name,
-                                email = email,
-                                phone = phone,
-                                request = request,
-                                isPrivate = isPrivate,
-                                requestType = selectedType
-                            )
-                        }
-                    },
+                    onClick = { viewModel.submitPrayerRequest() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp)
+                        .padding(vertical = 16.dp),
+                    enabled = !state.isLoading && state.canSubmit
                 ) {
-                    Text("Submit")
+                    if (state.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text("Submit")
+                    }
                 }
             }
         }
@@ -313,7 +266,7 @@ fun PrayerRequestScreen(
         AlertDialog(
             onDismissRequest = { showError = false },
             title = { Text("Error") },
-            text = { Text(state.error ?: "Please fill in all required fields.") },
+            text = { Text(state.error ?: "An error occurred. Please try again.") },
             confirmButton = {
                 TextButton(onClick = { showError = false }) {
                     Text("OK")
@@ -331,7 +284,7 @@ fun PrayerRequestScreen(
                 onDismiss()
             },
             title = { Text("Success") },
-            text = { Text("Your prayer request has been submitted.") },
+            text = { Text("Your prayer request has been submitted successfully.") },
             confirmButton = {
                 TextButton(
                     onClick = {

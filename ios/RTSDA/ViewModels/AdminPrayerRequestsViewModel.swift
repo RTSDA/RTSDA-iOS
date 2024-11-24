@@ -5,7 +5,6 @@ import Combine
 @MainActor
 final class AdminPrayerRequestsViewModel: ObservableObject {
     @Published var prayerRequests: [PrayerRequest] = []
-    @Published var filteredRequests: [PrayerRequest] = []
     @Published var isLoading = false
     @Published var showError = false
     @Published var errorMessage = ""
@@ -15,24 +14,26 @@ final class AdminPrayerRequestsViewModel: ObservableObject {
     private var listener: ListenerRegistration?
     
     init() {
-        setupRealtimeUpdates()
+        setupPrayerRequestsListener()
     }
     
     deinit {
         listener?.remove()
     }
     
-    private func setupRealtimeUpdates() {
+    func setupPrayerRequestsListener() {
         isLoading = true
-        print("Setting up realtime updates")
+        print("[AdminPrayerRequestsViewModel] Setting up prayer requests listener")
+        
+        listener?.remove()  // Remove any existing listener
         
         listener = db.collection("prayerRequests")
             .order(by: "timestamp", descending: true)
-            .addSnapshotListener { [weak self] (querySnapshot: QuerySnapshot?, error: Error?) in
+            .addSnapshotListener { [weak self] querySnapshot, error in
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("Firestore error: \(error.localizedDescription)")
+                    print("[AdminPrayerRequestsViewModel] Error fetching prayer requests: \(error.localizedDescription)")
                     self.errorMessage = error.localizedDescription
                     self.showError = true
                     self.isLoading = false
@@ -40,19 +41,16 @@ final class AdminPrayerRequestsViewModel: ObservableObject {
                 }
                 
                 guard let documents = querySnapshot?.documents else {
-                    print("No documents found in snapshot")
+                    print("[AdminPrayerRequestsViewModel] No documents found")
                     self.prayerRequests = []
-                    self.filterRequests()
                     self.isLoading = false
                     return
                 }
                 
-                print("Found \(documents.count) documents")
-                
+                print("[AdminPrayerRequestsViewModel] Received \(documents.count) prayer requests")
                 self.prayerRequests = documents.compactMap { document -> PrayerRequest? in
                     let data = document.data()
-                    print("Processing document: \(document.documentID)")
-                    print("Document data: \(data)")
+                    print("[AdminPrayerRequestsViewModel] Processing document: \(document.documentID)")
                     
                     guard let name = data["name"] as? String,
                           let email = data["email"] as? String,
@@ -61,7 +59,7 @@ final class AdminPrayerRequestsViewModel: ObservableObject {
                           let statusString = data["status"] as? String,
                           let status = PrayerRequest.RequestStatus(rawValue: statusString.lowercased()),
                           let timestamp = data["timestamp"] as? Timestamp else {
-                        print("Failed to parse required fields for document: \(document.documentID)")
+                        print("[AdminPrayerRequestsViewModel] Missing required fields for document: \(document.documentID)")
                         return nil
                     }
                     
@@ -97,45 +95,37 @@ final class AdminPrayerRequestsViewModel: ObservableObject {
                     )
                 }
                 
-                print("Successfully parsed \(self.prayerRequests.count) prayer requests")
-                self.filterRequests()
+                print("[AdminPrayerRequestsViewModel] Successfully decoded \(self.prayerRequests.count) prayer requests")
                 self.isLoading = false
             }
     }
     
-    func filterRequests() {
-        filteredRequests = prayerRequests.filter { request in
-            switch selectedRequestType {
-            case .all:
-                return true
-            case let type:
-                return request.requestType == type
-            }
+    var filteredRequests: [PrayerRequest] {
+        print("[AdminPrayerRequestsViewModel] Filtering requests - Type: \(selectedRequestType.rawValue)")
+        print("[AdminPrayerRequestsViewModel] Total requests: \(prayerRequests.count)")
+        
+        if selectedRequestType == .all {
+            print("[AdminPrayerRequestsViewModel] Returning all requests")
+            return prayerRequests
         }
+        
+        let filtered = prayerRequests.filter { $0.requestType == selectedRequestType }
+        print("[AdminPrayerRequestsViewModel] Filtered count: \(filtered.count)")
+        return filtered
     }
     
     func setRequestType(_ type: PrayerRequest.RequestType) {
+        print("[AdminPrayerRequestsViewModel] Setting request type: \(type.rawValue)")
         selectedRequestType = type
-        filterRequests()
     }
     
     func updateRequest(_ request: PrayerRequest) {
         Task {
             do {
-                try await db.collection("prayerRequests")
-                    .document(request.id)
-                    .updateData([
-                        "status": request.status.rawValue,
-                        "requestType": request.requestType.rawValue,
-                        "isPrivate": request.isPrivate
-                    ])
-                
-                if let index = prayerRequests.firstIndex(where: { $0.id == request.id }) {
-                    prayerRequests[index] = request
-                }
-                
-                filterRequests()
+                try await db.collection("prayerRequests").document(request.id).setData(from: request)
+                print("[AdminPrayerRequestsViewModel] Successfully updated request: \(request.id)")
             } catch {
+                print("[AdminPrayerRequestsViewModel] Error updating request: \(error.localizedDescription)")
                 errorMessage = error.localizedDescription
                 showError = true
             }
@@ -145,68 +135,13 @@ final class AdminPrayerRequestsViewModel: ObservableObject {
     func deleteRequest(_ request: PrayerRequest) {
         Task {
             do {
-                try await db.collection("prayerRequests")
-                    .document(request.id)
-                    .delete()
-                
-                prayerRequests.removeAll { $0.id == request.id }
-                
-                filterRequests()
+                try await db.collection("prayerRequests").document(request.id).delete()
+                print("[AdminPrayerRequestsViewModel] Successfully deleted request: \(request.id)")
             } catch {
+                print("[AdminPrayerRequestsViewModel] Error deleting request: \(error.localizedDescription)")
                 errorMessage = error.localizedDescription
                 showError = true
             }
         }
-    }
-    
-    func updateRequestStatus(_ request: PrayerRequest, newStatus: PrayerRequest.RequestStatus) async {
-        do {
-            let data: [String: Any] = [
-                "status": newStatus.rawValue
-            ]
-            
-            try await db.collection("prayerRequests").document(request.id).updateData(data)
-            
-            // Update local state
-            if let index = prayerRequests.firstIndex(where: { $0.id == request.id }) {
-                var updatedRequest = request
-                updatedRequest.status = newStatus
-                prayerRequests[index] = updatedRequest
-            }
-            
-            filterRequests()
-            
-            print("Updated prayer request status: \(request.id) - Status: \(newStatus)")
-        } catch {
-            print("Error updating prayer request status: \(error)")
-        }
-    }
-    
-    func deletePrayerRequest(_ request: PrayerRequest) async {
-        do {
-            try await db.collection("prayerRequests").document(request.id).delete()
-            prayerRequests.removeAll { $0.id == request.id }
-            
-            filterRequests()
-            
-            print("Deleted prayer request: \(request.id)")
-        } catch {
-            print("Error deleting prayer request: \(error)")
-        }
-    }
-    
-    private func createPrayerRequest(title: String, description: String) {
-        let timestamp = Timestamp(date: Date())
-        let prayerRequest = PrayerRequest(
-            id: "",
-            name: title,
-            email: "",
-            phone: "",
-            request: description,
-            timestamp: timestamp,
-            status: .new,
-            isPrivate: false,
-            requestType: .personal
-        )
     }
 }

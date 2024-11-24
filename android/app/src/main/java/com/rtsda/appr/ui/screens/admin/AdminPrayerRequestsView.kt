@@ -13,10 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rtsda.appr.data.model.PrayerRequest
 import com.rtsda.appr.data.model.RequestStatus
@@ -24,7 +20,7 @@ import com.rtsda.appr.data.model.RequestType
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminPrayerRequestsView(
     viewModel: AdminPrayerRequestsViewModel,
@@ -33,128 +29,156 @@ fun AdminPrayerRequestsView(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showFilters by remember { mutableStateOf(false) }
-    var selectedType by remember { mutableStateOf<RequestType?>(null) }
-    var showPrayedForOnly by remember { mutableStateOf(false) }
-    var showPrivateOnly by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var requestToDelete by remember { mutableStateOf<PrayerRequest?>(null) }
 
-    val filteredRequests = uiState.prayerRequests.filter { request ->
-        val matchesSearch = searchText.isEmpty() || 
+    val filteredRequests = uiState.requests.filter { request ->
+        val matchesSearch = searchText.isEmpty() ||
             request.name.contains(searchText, ignoreCase = true) ||
             request.email.contains(searchText, ignoreCase = true) ||
             request.request.contains(searchText, ignoreCase = true)
-        
-        val matchesType = selectedType == null || request.requestType == selectedType
-        val matchesPrayedFor = !showPrayedForOnly || request.status == RequestStatus.PRAYED
-        val matchesPrivate = !showPrivateOnly || request.isPrivate
-        
-        matchesSearch && matchesType && matchesPrayedFor && matchesPrivate
-    }
 
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = uiState.isLoading,
-        onRefresh = { viewModel.loadPrayerRequests() }
-    )
+        val matchesType = uiState.selectedType == null || request.requestType == uiState.selectedType
+        val matchesApproved = !uiState.showApprovedOnly || request.status == RequestStatus.APPROVED
+        val matchesPrivate = !uiState.showPrivateOnly || request.isPrivate
+
+        matchesSearch && matchesType && matchesApproved && matchesPrivate
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Prayer Requests") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Column {
+                TopAppBar(
+                    title = { Text("Prayer Requests") },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showFilters = true }) {
+                            Icon(
+                                imageVector = Icons.Default.FilterList,
+                                contentDescription = "Filter"
+                            )
+                        }
                     }
-                },
-                actions = {
-                    IconButton(onClick = { showFilters = true }) {
-                        Icon(Icons.Default.FilterList, contentDescription = "Filter")
+                )
+                SearchBar(
+                    query = searchText,
+                    onQueryChange = { searchText = it },
+                    onSearch = { },
+                    active = false,
+                    onActiveChange = { },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Search requests") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
+                ) { }
+            }
+        }
+    ) { padding ->
+        Box(modifier = modifier.padding(padding)) {
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (uiState.requests.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PriorityHigh,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = "No Prayer Requests",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                        Text(
+                            text = "Prayer requests will appear here",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-            )
-        },
-        modifier = modifier.fillMaxSize()
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Search Bar
-            OutlinedTextField(
-                value = searchText,
-                onValueChange = { searchText = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("Search requests") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
-            )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        FiltersSection(
+                            selectedType = uiState.selectedType,
+                            showApprovedOnly = uiState.showApprovedOnly,
+                            showPrivateOnly = uiState.showPrivateOnly,
+                            onTypeSelected = { viewModel.updateSelectedType(it) },
+                            onApprovedChanged = { viewModel.updateShowApprovedOnly(it) },
+                            onPrivateChanged = { viewModel.updateShowPrivateOnly(it) }
+                        )
+                    }
 
-            // Filters Section
+                    items(
+                        items = filteredRequests,
+                        key = { it.id }
+                    ) { request ->
+                        SwipeToDismiss(
+                            request = request,
+                            onDismiss = {
+                                requestToDelete = request
+                                showDeleteDialog = true
+                            }
+                        ) {
+                            PrayerRequestCard(
+                                request = request,
+                                onStatusChange = { newStatus ->
+                                    viewModel.updateRequestStatus(request.id, newStatus)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             if (showFilters) {
-                FiltersSection(
-                    selectedType = selectedType,
-                    showPrayedForOnly = showPrayedForOnly,
-                    showPrivateOnly = showPrivateOnly,
-                    onTypeSelected = { selectedType = it },
-                    onPrayedForChanged = { showPrayedForOnly = it },
-                    onPrivateChanged = { showPrivateOnly = it }
+                FilterSheet(
+                    selectedType = uiState.selectedType,
+                    onTypeSelected = { viewModel.updateSelectedType(it) },
+                    onDismiss = { showFilters = false }
                 )
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pullRefresh(pullRefreshState)
-            ) {
-                when {
-                    uiState.error != null -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = uiState.error ?: "An error occurred",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                    filteredRequests.isEmpty() && !uiState.isLoading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No prayer requests found",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
-                    }
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(filteredRequests) { request ->
-                                PrayerRequestCard(
-                                    request = request,
-                                    onStatusChange = { newStatus ->
-                                        viewModel.updateRequestStatus(request, newStatus)
-                                    },
-                                    onDelete = {
-                                        viewModel.deleteRequest(request)
-                                    }
-                                )
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Delete Request") },
+                    text = { Text("Are you sure you want to delete this prayer request?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                requestToDelete?.let { viewModel.deleteRequest(it.id) }
+                                showDeleteDialog = false
+                                requestToDelete = null
                             }
+                        ) {
+                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text("Cancel")
                         }
                     }
-                }
-                PullRefreshIndicator(
-                    refreshing = uiState.isLoading,
-                    state = pullRefreshState,
-                    modifier = Modifier.align(Alignment.TopCenter)
                 )
             }
         }
@@ -164,73 +188,180 @@ fun AdminPrayerRequestsView(
 @Composable
 private fun FiltersSection(
     selectedType: RequestType?,
-    showPrayedForOnly: Boolean,
+    showApprovedOnly: Boolean,
     showPrivateOnly: Boolean,
     onTypeSelected: (RequestType?) -> Unit,
-    onPrayedForChanged: (Boolean) -> Unit,
-    onPrivateChanged: (Boolean) -> Unit
+    onApprovedChanged: (Boolean) -> Unit,
+    onPrivateChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+    Card(
+        modifier = modifier.fillMaxWidth(),
     ) {
-        // Type Filter
-        Text(
-            text = "Filter by Type",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            RequestType.values().forEach { type ->
-                FilterChip(
-                    selected = selectedType == type,
-                    onClick = { onTypeSelected(if (selectedType == type) null else type) },
-                    label = { Text(type.toString()) }
-                )
-            }
-        }
-
-        // Status and Privacy Filters
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FilterChip(
-                selected = showPrayedForOnly,
-                onClick = { onPrayedForChanged(!showPrayedForOnly) },
-                label = { Text("Prayed For") }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Filters",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                if (selectedType != null) {
+                    TextButton(onClick = { onTypeSelected(null) }) {
+                        Text("Clear")
+                    }
+                }
+            }
+
+            Switch(
+                checked = showApprovedOnly,
+                onCheckedChange = onApprovedChanged,
+                modifier = Modifier.fillMaxWidth(),
+                thumbContent = if (showApprovedOnly) {
+                    { Icon(Icons.Default.Check, contentDescription = null) }
+                } else null
             )
-            FilterChip(
-                selected = showPrivateOnly,
-                onClick = { onPrivateChanged(!showPrivateOnly) },
-                label = { Text("Private Only") }
+            Text(
+                text = "Show Approved Only",
+                style = MaterialTheme.typography.bodyMedium
             )
+
+            Switch(
+                checked = showPrivateOnly,
+                onCheckedChange = onPrivateChanged,
+                modifier = Modifier.fillMaxWidth(),
+                thumbContent = if (showPrivateOnly) {
+                    { Icon(Icons.Default.Check, contentDescription = null) }
+                } else null
+            )
+            Text(
+                text = "Show Private Only",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            if (selectedType != null) {
+                Text(
+                    text = "Type: ${selectedType.name}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }
 
 @Composable
+private fun FilterSheet(
+    selectedType: RequestType?,
+    onTypeSelected: (RequestType) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Request Type",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            RequestType.values().forEach { type ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onTypeSelected(type) }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = type.name,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (type == selectedType) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected"
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeToDismiss(
+    request: PrayerRequest,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val dismissState = rememberDismissState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == DismissValue.DismissedToEnd || dismissValue == DismissValue.DismissedToStart) {
+                onDismiss()
+                true
+            } else {
+                false
+            }
+        }
+    )
+
+    SwipeToDismiss(
+        state = dismissState,
+        background = {
+            val color = MaterialTheme.colorScheme.error
+            val direction = dismissState.dismissDirection
+
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(color)
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = if (direction == DismissDirection.StartToEnd) {
+                    Arrangement.Start
+                } else {
+                    Arrangement.End
+                },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.onError
+                )
+            }
+        },
+        dismissContent = { content() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun PrayerRequestCard(
     request: PrayerRequest,
     onStatusChange: (RequestStatus) -> Unit,
-    onDelete: () -> Unit
+    modifier: Modifier = Modifier
 ) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = !expanded }
+    ElevatedCard(
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -245,98 +376,51 @@ private fun PrayerRequestCard(
                 if (request.isPrivate) {
                     Icon(
                         imageVector = Icons.Default.Lock,
-                        contentDescription = "Private",
-                        tint = MaterialTheme.colorScheme.secondary
+                        contentDescription = "Private"
                     )
                 }
             }
-            
+
+            Text(
+                text = request.email,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             Text(
                 text = request.request,
-                maxLines = if (expanded) Int.MAX_VALUE else 2,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
             )
-            
-            if (expanded) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Email, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(request.email)
-                }
-                
-                if (request.phone.isNotEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Phone, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(request.phone)
-                    }
-                }
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Type: ${request.requestType}")
-                }
-                
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+                        .format(request.timestamp.toDate()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Status Menu
-                    Box {
-                        var showStatusMenu by remember { mutableStateOf(false) }
-                        TextButton(onClick = { showStatusMenu = true }) {
-                            Text("Status: ${request.status}")
-                        }
-                        DropdownMenu(
-                            expanded = showStatusMenu,
-                            onDismissRequest = { showStatusMenu = false }
-                        ) {
-                            RequestStatus.values().forEach { status ->
-                                DropdownMenuItem(
-                                    text = { Text(status.toString()) },
-                                    onClick = {
-                                        onStatusChange(status)
-                                        showStatusMenu = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Delete Button
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error
+                    RequestStatus.values().forEach { status ->
+                        FilterChip(
+                            selected = request.status == status,
+                            onClick = { onStatusChange(status) },
+                            label = { Text(status.name) },
+                            leadingIcon = if (request.status == status) {
+                                { Icon(Icons.Default.Check, contentDescription = null) }
+                            } else null
                         )
                     }
                 }
             }
         }
-    }
-    
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Prayer Request") },
-            text = { Text("Are you sure you want to delete this prayer request?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDelete()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }

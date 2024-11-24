@@ -1,5 +1,5 @@
-import { db } from './firebase-config.js';
-import { collection, query, orderBy, getDocs, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { initializeFirebase, db } from './firebase-config.js';
+import { collection, query, orderBy, getDocs, where, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // Helper function to format recurrence type
 function formatRecurrenceType(type) {
@@ -11,61 +11,62 @@ function formatRecurrenceType(type) {
 
 // Format date and time
 function formatDateTime(date, time) {
-    const eventDate = new Date(date);
+    const eventDate = date instanceof Date ? date : date.toDate();
     const formattedDate = eventDate.toLocaleDateString('en-US', {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
         year: 'numeric'
     });
-    return `${formattedDate} at ${time}`;
+    return time ? `${formattedDate} at ${time}` : formattedDate;
 }
 
 // Helper function to get the correct HTML file for an event
 function getEventPage(title) {
+    if (!title) return 'events.html';
+    
     const titleLower = title.toLowerCase().trim();
-    console.log('=== Event Routing Debug ===');
-    console.log('Original title:', title);
-    console.log('Lowercase title:', titleLower);
     
     // Check for specific prayer events first
     if (titleLower.includes('prayer')) {
-        console.log('Contains "prayer"');
-        
         // Check for specific prayer meetings first
-        // Handle all variations of bi-weekly
         if (titleLower.includes('bi-weekly') || 
             titleLower.includes('biweekly') || 
             titleLower.includes('bi weekly')) {
-            console.log('→ Matched bi-weekly, routing to Biweeklyprayer.html');
             return 'Biweeklyprayer.html';
         }
         if (titleLower.includes('monthly')) {
-            console.log('→ Matched monthly prayer, routing to Monthlyprayermeeting.html');
             return 'Monthlyprayermeeting.html';
         }
-        
-        // If no specific prayer meeting matched, use general prayer page
-        console.log('→ No specific prayer type matched, routing to Prayer.html');
+        if (titleLower.includes('new year') || titleLower.includes('end of year')) {
+            return 'newyearprayer.html';
+        }
         return 'Prayer.html';
     }
     
-    // Then check for other specific pages
     if (titleLower.includes('bible study')) {
-        console.log('→ Matched bible study, routing to Biblestudyregister.html');
         return 'Biblestudyregister.html';
     }
     if (titleLower.includes('emmanuel')) {
-        console.log('→ Matched emmanuel, routing to Emmanuel.html');
         return 'Emmanuel.html';
     }
     
-    // Default to events.html if no specific page exists
-    console.log('→ No match, routing to events.html');
     return 'events.html';
 }
 
+// Helper function to convert any date format to Date object
+function getDate(event) {
+    if (!event.startDate) return new Date(0);
+    
+    if (event.startDate instanceof Date) return event.startDate;
+    if (event.startDate instanceof Timestamp) return event.startDate.toDate();
+    if (typeof event.startDate === 'number') return new Date(event.startDate * 1000);
+    if (event.startDate?.seconds) return new Date(event.startDate.seconds * 1000);
+    return new Date(event.startDate);
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
+    console.log('DOM loaded, initializing events...');
     const eventsContainer = document.getElementById('events-container');
     
     if (!eventsContainer) {
@@ -74,52 +75,29 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
     try {
-        // Fetch upcoming events
+        // Initialize Firebase first
+        await initializeFirebase();
+        
+        if (!db) {
+            throw new Error('Firebase database not initialized');
+        }
+        
+        console.log('Firebase initialized successfully, fetching events...');
         const eventsRef = collection(db, 'events');
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
         const q = query(
             eventsRef,
+            where('startDate', '>=', Timestamp.fromDate(today)),
             orderBy('startDate', 'asc')
         );
         
+        console.log('Executing query...');
         const querySnapshot = await getDocs(q);
+        console.log('Query complete, processing results...');
         
-        // Filter and sort events
-        const events = querySnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(event => {
-                const startDate = typeof event.startDate === 'number'
-                    ? new Date(event.startDate * 1000)
-                    : event.startDate instanceof Timestamp
-                        ? event.startDate.toDate()
-                        : event.startDate?.seconds
-                            ? new Date(event.startDate.seconds * 1000)
-                            : new Date(event.startDate);
-                
-                return startDate >= today;
-            })
-            .sort((a, b) => {
-                const aDate = typeof a.startDate === 'number'
-                    ? new Date(a.startDate * 1000)
-                    : a.startDate instanceof Timestamp
-                        ? a.startDate.toDate()
-                        : a.startDate?.seconds
-                            ? new Date(a.startDate.seconds * 1000)
-                            : new Date(a.startDate);
-                const bDate = typeof b.startDate === 'number'
-                    ? new Date(b.startDate * 1000)
-                    : b.startDate instanceof Timestamp
-                        ? b.startDate.toDate()
-                        : b.startDate?.seconds
-                            ? new Date(b.startDate.seconds * 1000)
-                            : new Date(b.startDate);
-                return aDate - bDate;
-            })
-            .slice(0, 4); // Only show the next 4 events on the homepage
-        
-        if (events.length === 0) {
+        if (querySnapshot.empty) {
             eventsContainer.innerHTML = `
                 <div class="column event-block">
                     <div class="event-block__content">
@@ -130,40 +108,49 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
         
-        // Render events
+        // Process and sort events
+        const events = querySnapshot.docs
+            .map(doc => {
+                const data = doc.data();
+                return { id: doc.id, ...data };
+            })
+            .map(event => ({
+                ...event,
+                startDate: getDate(event),
+                endDate: event.endDate ? getDate({ startDate: event.endDate }) : null
+            }))
+            .sort((a, b) => a.startDate - b.startDate)
+            .slice(0, 4); // Only show the next 4 events
+        
+        console.log('Processed events:', events);
+        
+        // Generate HTML for events
         const eventsHTML = events.map(event => {
-            const startDate = typeof event.startDate === 'number'
-                ? new Date(event.startDate * 1000)
-                : event.startDate instanceof Timestamp
-                    ? event.startDate.toDate()
-                    : event.startDate?.seconds
-                        ? new Date(event.startDate.seconds * 1000)
-                        : new Date(event.startDate);
-            
-            const eventPage = getEventPage(event.title);
+            const eventUrl = getEventPage(event.title);
+            const recurrenceLabel = formatRecurrenceType(event.recurrenceType);
             
             return `
-                <div class="column events-list__item">
-                    <h3 class="display-1 events-list__item-title">
-                        <a href="${eventPage}" class="events-list__item-link">
-                            ${event.title}
-                        </a>
-                    </h3>
-                    <p class="events-list__item-desc">${event.description}</p>
-                    <ul class="events-list__meta">
-                        <li class="events-list__meta-date">${startDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</li>
-                        <li class="events-list__meta-time">${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${event.endTime ? ` - ${event.endTime}` : ''}</li>
-                        <li class="events-list__meta-location">${event.location}${
-                            event.locationUrl ? `<br><a href="${event.locationUrl}" target="_blank">View on Map</a>` : ''
-                        }</li>
-                    </ul>
-                </div>`;
+                <div class="column event-block">
+                    <div class="event-block__content">
+                        <h3>
+                            <a href="${eventUrl}" class="event-block__title">
+                                ${event.title || 'Untitled Event'}
+                            </a>
+                        </h3>
+                        <p class="event-block__date">
+                            ${formatDateTime(event.startDate, event.time)}
+                        </p>
+                        ${event.location ? `<p class="event-block__location">Location: ${event.location}</p>` : ''}
+                        ${event.description ? `<p class="event-block__desc">${event.description}</p>` : ''}
+                        ${recurrenceLabel ? `<p class="event-block__recurrence">Recurs: ${recurrenceLabel}</p>` : ''}
+                    </div>
+                </div>
+            `;
         }).join('');
         
         eventsContainer.innerHTML = eventsHTML;
-        
     } catch (error) {
-        console.error('Error loading events:', error);
+        console.error('Error fetching events:', error);
         eventsContainer.innerHTML = `
             <div class="column event-block">
                 <div class="event-block__content">

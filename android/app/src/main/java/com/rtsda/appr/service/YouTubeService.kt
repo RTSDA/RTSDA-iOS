@@ -2,7 +2,6 @@ package com.rtsda.appr.service
 
 import android.util.Log
 import com.google.gson.Gson
-import com.rtsda.appr.BuildConfig
 import com.rtsda.appr.model.Message
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -18,10 +17,9 @@ import java.util.regex.Pattern
 @Singleton
 class YouTubeService @Inject constructor(
     private val client: OkHttpClient,
-    private val gson: Gson
+    private val gson: Gson,
+    private val remoteConfig: RemoteConfigService
 ) {
-    private val apiKey = BuildConfig.YOUTUBE_API_KEY
-    private val channelId = BuildConfig.YOUTUBE_CHANNEL_ID
     private val cacheDuration = 15 * 60 * 1000L // 15 minutes
     
     private var cachedSermon: Message? = null
@@ -61,6 +59,14 @@ class YouTubeService @Inject constructor(
     
     private suspend fun fetchVideos() {
         try {
+            val apiKey = remoteConfig.getYouTubeApiKey()
+            val channelId = remoteConfig.getYouTubeChannelId()
+            
+            if (apiKey.isBlank() || channelId.isBlank()) {
+                Log.e("YouTubeService", "YouTube API key or channel ID not configured")
+                return
+            }
+            
             // First search for upcoming livestreams
             val upcomingUrl = buildString {
                 append("https://www.googleapis.com/youtube/v3/search")
@@ -229,6 +235,7 @@ class YouTubeService @Inject constructor(
     
     private suspend fun getVideoDuration(videoId: String): Long {
         try {
+            val apiKey = remoteConfig.getYouTubeApiKey()
             val url = buildString {
                 append("https://www.googleapis.com/youtube/v3/videos")
                 append("?key=$apiKey")

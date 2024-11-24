@@ -1,128 +1,145 @@
-// Import Firebase modules
-import { serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-import { PrayerRequestService } from './firebase-config.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { firebaseConfig, initializeFirebase } from './firebase-config.js';
 
-// Initialize the prayer request service
-const prayerRequestService = new PrayerRequestService();
+// Initialize Firebase
+let db;
+initializeFirebase().then(() => {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+}).catch(error => {
+    console.error('Error initializing Firebase:', error);
+});
 
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('prayerRequestForm');
-    
-    if (!form) {
-        console.error('Prayer request form not found');
-        return;
-    }
+    const nameInput = document.getElementById('name');
+    const emailInput = document.getElementById('email');
+    const phoneInput = document.getElementById('phone');
+    const requestInput = document.getElementById('message');
+    const isPrivateCheckbox = document.getElementById('isPrivate');
+    const isAnonymousCheckbox = document.getElementById('isAnonymous');
+    const requestTypeSelect = document.getElementById('requestType');
 
-    // Add input validation on phone field while typing
-    const phoneInput = form.phone;
-    if (phoneInput) {
-        phoneInput.addEventListener('input', function(e) {
-            const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-            if (value.length <= 10) {
-                // Format as (XXX) XXX-XXXX
-                if (value.length > 6) {
-                    e.target.value = `(${value.slice(0,3)}) ${value.slice(3,6)}-${value.slice(6)}`;
-                } else if (value.length > 3) {
-                    e.target.value = `(${value.slice(0,3)}) ${value.slice(3)}`;
-                } else if (value.length > 0) {
-                    e.target.value = `(${value}`;
-                }
-            } else {
-                e.target.value = e.target.value.slice(0, 14); // Limit to (XXX) XXX-XXXX
-            }
-        });
-    }
-    
-    function validateEmail(email) {
-        return email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    }
+    // Error message elements
+    const nameError = document.getElementById('nameError');
+    const emailError = document.getElementById('emailError');
+    const phoneError = document.getElementById('phoneError');
+    const requestError = document.getElementById('requestError');
 
-    function validatePhone(phone) {
-        return phone === '' || /^\(\d{3}\) \d{3}-\d{4}$/.test(phone);
-    }
-
-    function validateName(name) {
-        return name.length >= 2 && name.length <= 100;
-    }
-
-    function validateRequest(request) {
-        return request.length >= 10 && request.length <= 1000;
-    }
-    
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
+    // Phone formatting
+    phoneInput.addEventListener('input', (e) => {
+        let digits = e.target.value.replace(/\D/g, '');
+        if (digits.length > 10) digits = digits.substr(0, 10);
         
-        // Disable submit button to prevent double submission
-        const submitButton = form.querySelector('button[type="submit"]');
-        if (submitButton) {
-            submitButton.disabled = true;
+        let formattedNumber = '';
+        if (digits.length > 0) formattedNumber += '(' + digits.substr(0, 3);
+        if (digits.length > 3) formattedNumber += ') ' + digits.substr(3, 3);
+        if (digits.length > 6) formattedNumber += '-' + digits.substr(6);
+        
+        e.target.value = formattedNumber;
+    });
+
+    // Validation functions
+    const isValidEmail = (email) => {
+        if (!email) return true; // Optional field
+        const emailRegex = /^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,64}$/;
+        return emailRegex.test(email);
+    };
+
+    const isValidPhone = (phone) => {
+        if (!phone) return true; // Optional field
+        const digits = phone.replace(/\D/g, '');
+        return digits.length === 10;
+    };
+
+    // Real-time validation
+    nameInput.addEventListener('input', () => {
+        nameError.textContent = nameInput.value ? '' : 'Please enter your name';
+    });
+
+    emailInput.addEventListener('input', () => {
+        emailError.textContent = isValidEmail(emailInput.value) ? '' : 'Please enter a valid email address';
+    });
+
+    phoneInput.addEventListener('input', () => {
+        phoneError.textContent = isValidPhone(phoneInput.value) ? '' : 'Please enter a valid phone number';
+    });
+
+    requestInput.addEventListener('input', () => {
+        requestError.textContent = requestInput.value ? '' : 'Please enter your prayer request';
+    });
+
+    isAnonymousCheckbox.addEventListener('change', (e) => {
+        const nameField = nameInput.closest('.form-field');
+        if (e.target.checked) {
+            nameField.style.opacity = '0.5';
+            nameInput.disabled = true;
+            nameInput.value = '';
+            nameError.textContent = '';
+            nameInput.required = false;
+        } else {
+            nameField.style.opacity = '1';
+            nameInput.disabled = false;
+            nameInput.required = true;
         }
-        
-        try {
-            // Get form values
-            const name = form.name.value.trim();
-            const email = form.email.value.trim();
-            const phone = form.phone.value.trim();
-            const message = form.message.value.trim();
-            
-            // Validate all fields
-            const errors = [];
-            
-            if (!validateName(name)) {
-                errors.push('Name must be between 2 and 100 characters');
-            }
-            
-            if (!validateEmail(email)) {
-                errors.push('Please enter a valid email address or leave it empty');
-            }
-            
-            if (!validatePhone(phone)) {
-                errors.push('Please enter a valid phone number in format (XXX) XXX-XXXX or leave it empty');
-            }
-            
-            if (!validateRequest(message)) {
-                errors.push('Prayer request must be between 10 and 1000 characters');
-            }
-            
-            if (errors.length > 0) {
-                throw new Error(errors.join('\n'));
-            }
+    });
 
-            // Create prayer request document matching Android model
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!db) {
+            alert('Error: Firebase is not initialized. Please try again.');
+            return;
+        }
+
+        // Validate all fields
+        let isValid = true;
+
+        if (!isAnonymousCheckbox.checked && !nameInput.value) {
+            nameError.textContent = 'Please enter your name';
+            isValid = false;
+        }
+
+        if (emailInput.value && !isValidEmail(emailInput.value)) {
+            emailError.textContent = 'Please enter a valid email address';
+            isValid = false;
+        }
+
+        if (phoneInput.value && !isValidPhone(phoneInput.value)) {
+            phoneError.textContent = 'Please enter a valid phone number';
+            isValid = false;
+        }
+
+        if (!requestInput.value) {
+            requestError.textContent = 'Please enter your prayer request';
+            isValid = false;
+        }
+
+        if (!isValid) return;
+
+        try {
             const prayerRequest = {
-                name: name,
-                email: email,
-                phone: phone,
-                request: message,
-                timestamp: serverTimestamp(),
+                name: isAnonymousCheckbox.checked ? 'Anonymous' : nameInput.value,
+                email: emailInput.value || null,
+                phone: phoneInput.value || null,
+                request: requestInput.value,
+                timestamp: new Date(),
                 status: 'new',
-                isPrivate: form.isPrivate ? form.isPrivate.checked : false
+                isPrivate: isPrivateCheckbox.checked,
+                isAnonymous: isAnonymousCheckbox.checked,
+                requestType: requestTypeSelect.value
             };
+
+            await addDoc(collection(db, 'prayerRequests'), prayerRequest);
             
-            // Submit using the service
-            const success = await prayerRequestService.submitRequest(prayerRequest);
-            
-            if (!success) {
-                throw new Error('Failed to submit prayer request');
-            }
-            
-            // Clear form
+            // Show success message and reset form
+            alert('Prayer request submitted successfully!');
             form.reset();
-            
-            // Show success message
-            alert('Your prayer request has been submitted. We will be praying for you.');
-            
-            // Redirect to thank you page
-            window.location.href = 'thankyou.html';
             
         } catch (error) {
             console.error('Error submitting prayer request:', error);
-            alert(error.message || 'There was an error submitting your prayer request. Please try again.');
-        } finally {
-            // Re-enable submit button
-            if (submitButton) {
-                submitButton.disabled = false;
-            }
+            alert('There was an error submitting your prayer request. Please try again.');
         }
     });
 });

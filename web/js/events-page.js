@@ -1,5 +1,18 @@
-import { db } from './firebase-config.js';
-import { collection, query, orderBy, getDocs, where, Timestamp, setDoc, doc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { initializeFirebase, db, auth } from './firebase-config.js';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    getDocs, 
+    where, 
+    Timestamp, 
+    setDoc, 
+    doc,
+    updateDoc,
+    addDoc,
+    deleteDoc,
+    getDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // Helper function to format recurrence type
 function formatRecurrenceType(type) {
@@ -9,278 +22,243 @@ function formatRecurrenceType(type) {
         .join(' ');
 }
 
-// Calculate next occurrence of a recurring event
-function calculateNextDate(date, recurrenceType) {
-    const nextDate = new Date(date);
-    
-    switch (recurrenceType) {
-        case 'WEEKLY':
-            nextDate.setDate(nextDate.getDate() + 7);
-            break;
-            
-        case 'BIWEEKLY':
-            nextDate.setDate(nextDate.getDate() + 14);
-            break;
-            
-        case 'MONTHLY':
-            nextDate.setMonth(nextDate.getMonth() + 1);
-            break;
-            
-        case 'FIRST_TUESDAY':
-            // Move to first day of next month
-            nextDate.setMonth(nextDate.getMonth() + 1);
-            nextDate.setDate(1);
-            
-            // Find first Tuesday
-            while (nextDate.getDay() !== 2) { // 2 = Tuesday
-                nextDate.setDate(nextDate.getDate() + 1);
-            }
-            break;
-            
-        default:
-            return null;
-    }
-    
-    return nextDate;
-}
-
-// Sync recurring events
-async function syncRecurringEvents() {
-    try {
-        console.log('Starting recurring events sync...');
-        const eventsRef = collection(db, 'events');
-        const now = new Date();
-        
-        // Get all recurring events
-        const recurringQuery = query(
-            eventsRef,
-            where('recurrenceType', '!=', 'NONE')
-        );
-        
-        const recurringSnapshot = await getDocs(recurringQuery);
-        console.log('Found recurring events:', recurringSnapshot.size);
-        
-        // Process each recurring event to ensure its next date is correct
-        for (const docSnap of recurringSnapshot.docs) {
-            const event = { id: docSnap.id, ...docSnap.data() };
-            console.log('Processing recurring event:', event.title);
-            
-            // Convert Firestore timestamp to Date
-            let currentDate;
-            if (event.startDate instanceof Timestamp) {
-                currentDate = event.startDate.toDate();
-            } else if (typeof event.startDate === 'number') {
-                currentDate = new Date(event.startDate * 1000);
-            } else if (event.startDate?.seconds) {
-                currentDate = new Date(event.startDate.seconds * 1000);
-            } else {
-                console.error('Invalid startDate for event:', event);
-                continue;
-            }
-            
-            // If the event start is in the past, update it to the next occurrence
-            if (currentDate < now) {
-                while (currentDate < now) {
-                    const nextDate = calculateNextDate(currentDate, event.recurrenceType);
-                    if (!nextDate) break;
-                    currentDate = nextDate;
-                }
-                
-                // Calculate new end date based on duration
-                let duration = 3600; // Default 1 hour
-                if (event.endDate) {
-                    const endDate = event.endDate instanceof Timestamp
-                        ? event.endDate.toDate()
-                        : typeof event.endDate === 'number'
-                            ? new Date(event.endDate * 1000)
-                            : event.endDate?.seconds
-                                ? new Date(event.endDate.seconds * 1000)
-                                : null;
-                    
-                    if (endDate) {
-                        const startDate = event.startDate instanceof Timestamp
-                            ? event.startDate.toDate()
-                            : typeof event.startDate === 'number'
-                                ? new Date(event.startDate * 1000)
-                                : event.startDate?.seconds
-                                    ? new Date(event.startDate.seconds * 1000)
-                                    : null;
-                        
-                        duration = (endDate.getTime() - startDate.getTime()) / 1000;
-                    }
-                }
-                
-                const newStartSeconds = Math.floor(currentDate.getTime() / 1000);
-                const newEndSeconds = newStartSeconds + duration;
-                
-                // Update the event with new dates
-                await setDoc(doc(eventsRef, event.id), {
-                    ...event,
-                    startDate: newStartSeconds,
-                    endDate: newEndSeconds
-                });
-                
-                console.log('Updated recurring event:', event.title, 'to', currentDate);
-            }
-        }
-        
-        console.log('Recurring events sync completed');
-    } catch (error) {
-        console.error('Error syncing recurring events:', error);
-    }
+// Format date and time
+function formatDateTime(date, time) {
+    const eventDate = date instanceof Date ? date : date.toDate();
+    const formattedDate = eventDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+    });
+    return time ? `${formattedDate} at ${time}` : formattedDate;
 }
 
 // Helper function to get the correct HTML file for an event
 function getEventPage(title) {
+    if (!title) return 'events.html';
+    
     const titleLower = title.toLowerCase().trim();
-    console.log('=== Event Routing Debug ===');
-    console.log('Original title:', title);
-    console.log('Lowercase title:', titleLower);
     
     // Check for specific prayer events first
     if (titleLower.includes('prayer')) {
-        console.log('Contains "prayer"');
-        
         // Check for specific prayer meetings first
-        // Handle all variations of bi-weekly
         if (titleLower.includes('bi-weekly') || 
             titleLower.includes('biweekly') || 
             titleLower.includes('bi weekly')) {
-            console.log('→ Matched bi-weekly, routing to Biweeklyprayer.html');
             return 'Biweeklyprayer.html';
         }
         if (titleLower.includes('monthly')) {
-            console.log('→ Matched monthly prayer, routing to Monthlyprayermeeting.html');
             return 'Monthlyprayermeeting.html';
         }
-        
-        // If no specific prayer meeting matched, use general prayer page
-        console.log('→ No specific prayer type matched, routing to Prayer.html');
+        if (titleLower.includes('new year') || titleLower.includes('end of year')) {
+            return 'newyearprayer.html';
+        }
         return 'Prayer.html';
     }
     
-    // Then check for other specific pages
     if (titleLower.includes('bible study')) {
-        console.log('→ Matched bible study, routing to Biblestudyregister.html');
         return 'Biblestudyregister.html';
     }
     if (titleLower.includes('emmanuel')) {
-        console.log('→ Matched emmanuel, routing to Emmanuel.html');
         return 'Emmanuel.html';
     }
     
-    // Default to events.html if no specific page exists
-    console.log('→ No match, routing to events.html');
     return 'events.html';
 }
 
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('Starting to load events...');
-    const eventsContainer = document.getElementById('events-container');
+// Helper function to convert any date format to Date object
+function getDate(event) {
+    if (!event.startDate) return new Date(0);
     
+    if (event.startDate instanceof Date) return event.startDate;
+    if (event.startDate instanceof Timestamp) return event.startDate.toDate();
+    if (typeof event.startDate === 'number') return new Date(event.startDate * 1000);
+    if (event.startDate?.seconds) return new Date(event.startDate.seconds * 1000);
+    return new Date(event.startDate);
+}
+
+// Load and display existing events
+async function loadEvents() {
+    console.log('Starting events load...');
     try {
-        // First sync recurring events
-        await syncRecurringEvents();
+        // Initialize Firebase first
+        await initializeFirebase();
         
-        // Then fetch upcoming events
+        if (!db) {
+            throw new Error('Firebase database not initialized');
+        }
+        
+        console.log('Firebase initialized successfully, fetching events...');
+        
+        const eventsList = document.getElementById('events-container');
+        if (!eventsList) {
+            throw new Error('Events container not found');
+        }
+
         const eventsRef = collection(db, 'events');
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        // Query for all events, including recurring ones
         const q = query(
             eventsRef,
+            where('startDate', '>=', Timestamp.fromDate(today)),
             orderBy('startDate', 'asc')
         );
         
-        console.log('Fetching events from Firebase...');
+        console.log('Executing query...');
         const querySnapshot = await getDocs(q);
-        console.log('Found events:', querySnapshot.size);
-        
-        eventsContainer.innerHTML = ''; // Clear existing events
+        console.log('Query complete, processing results...');
         
         if (querySnapshot.empty) {
-            console.log('No events found in collection');
-            eventsContainer.innerHTML = '<p>No upcoming events.</p>';
+            eventsList.innerHTML = `
+                <div class="column event-block">
+                    <div class="event-block__content">
+                        <h3>No Upcoming Events</h3>
+                        <p>Check back soon for new events!</p>
+                    </div>
+                </div>`;
             return;
         }
         
-        // Filter and sort events
+        // Process and sort events
         const events = querySnapshot.docs
             .map(doc => {
-                const data = { id: doc.id, ...doc.data() };
-                console.log('Event data:', data);
-                return data;
+                const data = doc.data();
+                return { id: doc.id, ...data };
             })
-            .filter(event => {
-                // Convert startDate to Date object for comparison
-                const startDate = typeof event.startDate === 'number'
-                    ? new Date(event.startDate * 1000)
-                    : event.startDate instanceof Timestamp
-                        ? event.startDate.toDate()
-                        : event.startDate?.seconds
-                            ? new Date(event.startDate.seconds * 1000)
-                            : new Date(event.startDate);
-                
-                const isUpcoming = startDate >= today;
-                console.log(`Event "${event.title}" - isUpcoming: ${isUpcoming}`);
-                return isUpcoming;
-            })
-            .sort((a, b) => {
-                const aDate = typeof a.startDate === 'number'
-                    ? new Date(a.startDate * 1000)
-                    : a.startDate instanceof Timestamp
-                        ? a.startDate.toDate()
-                        : a.startDate?.seconds
-                            ? new Date(a.startDate.seconds * 1000)
-                            : new Date(a.startDate);
-                const bDate = typeof b.startDate === 'number'
-                    ? new Date(b.startDate * 1000)
-                    : b.startDate instanceof Timestamp
-                        ? b.startDate.toDate()
-                        : b.startDate?.seconds
-                            ? new Date(b.startDate.seconds * 1000)
-                            : new Date(b.startDate);
-                return aDate - bDate;
-            });
+            .map(event => ({
+                ...event,
+                startDate: getDate(event),
+                endDate: event.endDate ? getDate({ startDate: event.endDate }) : null
+            }))
+            .sort((a, b) => a.startDate - b.startDate);
         
-        console.log('Filtered events:', events);
+        console.log('Processed events:', events);
         
-        // Render events
+        // Generate HTML for events
         const eventsHTML = events.map(event => {
-            const startDate = typeof event.startDate === 'number'
-                ? new Date(event.startDate * 1000)
-                : event.startDate instanceof Timestamp
-                    ? event.startDate.toDate()
-                    : event.startDate?.seconds
-                        ? new Date(event.startDate.seconds * 1000)
-                        : new Date(event.startDate);
-            
-            const eventPage = getEventPage(event.title);
-            console.log(`Event "${event.title}" routing to: ${eventPage}`);
+            const eventUrl = getEventPage(event.title);
+            const recurrenceLabel = formatRecurrenceType(event.recurrenceType);
             
             return `
-                <div class="column events-list__item">
-                    <h3 class="display-1 events-list__item-title">
-                        <a href="${eventPage}" class="events-list__item-link">
-                            ${event.title}
-                        </a>
-                    </h3>
-                    <p class="events-list__item-desc">${event.description}</p>
-                    <ul class="events-list__meta">
-                        <li class="events-list__meta-date">${startDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</li>
-                        <li class="events-list__meta-time">${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}${event.endTime ? ` - ${event.endTime}` : ''}</li>
-                        <li class="events-list__meta-location">${event.location}${
-                            event.locationUrl ? `<br><a href="${event.locationUrl}" target="_blank">View on Map</a>` : ''
-                        }</li>
-                    </ul>
-                </div>`;
+                <div class="column event-block">
+                    <div class="event-block__content">
+                        <h3>
+                            <a href="${eventUrl}" class="event-block__title">
+                                ${event.title || 'Untitled Event'}
+                            </a>
+                        </h3>
+                        <p class="event-block__date">
+                            ${formatDateTime(event.startDate, event.time)}
+                        </p>
+                        ${event.location ? `<p class="event-block__location">Location: ${event.location}</p>` : ''}
+                        ${event.description ? `<p class="event-block__desc">${event.description}</p>` : ''}
+                        ${recurrenceLabel ? `<p class="event-block__recurrence">Recurs: ${recurrenceLabel}</p>` : ''}
+                        ${auth.currentUser ? `
+                            <div class="event-block__actions">
+                                <button onclick="editEvent('${event.id}')" class="btn btn--stroke">Edit</button>
+                                <button onclick="deleteEvent('${event.id}')" class="btn btn--stroke">Delete</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
         }).join('');
         
-        console.log('Setting innerHTML with events:', eventsHTML);
-        eventsContainer.innerHTML = eventsHTML;
+        eventsList.innerHTML = eventsHTML;
+        
     } catch (error) {
         console.error('Error fetching events:', error);
-        eventsContainer.innerHTML = '<p>Error loading events. Please try again later.</p>';
+        const eventsList = document.getElementById('events-container');
+        if (eventsList) {
+            eventsList.innerHTML = `
+                <div class="column event-block">
+                    <div class="event-block__content">
+                        <h3>Error Loading Events</h3>
+                        <p>Please try again later.</p>
+                    </div>
+                </div>`;
+        }
+    }
+}
+
+// Delete an event
+async function deleteEvent(eventId) {
+    if (!confirm('Are you sure you want to delete this event?')) {
+        return;
+    }
+    
+    try {
+        await deleteDoc(doc(db, 'events', eventId));
+        alert('Event deleted successfully!');
+        await loadEvents();
+    } catch (error) {
+        console.error('Error deleting event:', error);
+        alert('Error deleting event. Please try again later.');
+    }
+}
+
+// Edit an event
+async function editEvent(eventId) {
+    try {
+        const eventDoc = await getDoc(doc(db, 'events', eventId));
+        if (!eventDoc.exists()) {
+            alert('Event not found');
+            return;
+        }
+        
+        const event = eventDoc.data();
+        
+        // Populate form fields
+        const form = document.getElementById('addEventForm');
+        if (!form) {
+            alert('Event edit form not found');
+            return;
+        }
+        
+        form.title.value = event.title || '';
+        form.description.value = event.description || '';
+        form.location.value = event.location || '';
+        form.time.value = event.time || '';
+        form.recurrenceType.value = event.recurrenceType || 'NONE';
+        
+        // Convert Timestamp to date string
+        if (event.startDate) {
+            const startDate = event.startDate instanceof Timestamp 
+                ? event.startDate.toDate() 
+                : new Date(event.startDate.seconds * 1000);
+            form.startDate.value = startDate.toISOString().split('T')[0];
+        }
+        
+        if (event.endDate) {
+            const endDate = event.endDate instanceof Timestamp 
+                ? event.endDate.toDate() 
+                : new Date(event.endDate.seconds * 1000);
+            form.endDate.value = endDate.toISOString().split('T')[0];
+        }
+        
+        // Update form for editing mode
+        form.dataset.editing = eventId;
+        form.querySelector('button[type="submit"]').textContent = 'Update Event';
+        
+        // Scroll to form
+        form.scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+        console.error('Error loading event for editing:', error);
+        alert('Error loading event for editing. Please try again later.');
+    }
+}
+
+// Make functions available globally
+window.deleteEvent = deleteEvent;
+window.editEvent = editEvent;
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await loadEvents();
+    } catch (error) {
+        console.error('Error initializing events page:', error);
     }
 });

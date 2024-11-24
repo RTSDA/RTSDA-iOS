@@ -569,196 +569,83 @@ form,
  * # preloader
  *
  * ------------------------------------------------------------------- */
-#preloader {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #121212;
-  z-index: 500;
-  height: 100vh;
-  width: 100%;
-  overflow: hidden;
+html.ss-preload {
+    overflow: hidden;
 }
 
-.no-js #preloader,
-.oldie #preloader {
-  display: none;
+html.ss-preload .s-header {
+    opacity: 0;
+}
+
+html.ss-preload #preloader {
+    display: block;
+    opacity: 1;
+}
+
+#preloader {
+    transition: opacity .3s ease-in-out;
+    opacity: 1;
+    background-color: #050505;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999999;
+    height: 100vh;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ss-loaded #preloader {
+    opacity: 0;
+    visibility: hidden;
 }
 
 #loader {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  padding: 0;
-  display: inline-block;
-  -webkit-transform: translate3d(-50%, -50%, 0);
-  transform: translate3d(-50%, -50%, 0);
+    display: flex;
+    align-items: center;
 }
 
-#loader > div {
-  content: "";
-  background: #ffffff;
-  width: 6px;
-  height: 6px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  border-radius: 50%;
+#loader .dots-jump {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;
+    width: 50px;
+    height: 15px;
 }
 
-#loader > div:nth-of-type(1) {
-  left: 15px;
+#loader .dots-jump div {
+    width: 10px;
+    height: 10px;
+    background: #ffffff;
+    border-radius: 50%;
+    animation: jump .8s ease infinite;
 }
 
-#loader > div:nth-of-type(3) {
-  left: -15px;
+#loader .dots-jump div:nth-child(1) {
+    animation-delay: 100ms;
 }
 
-/* dots jump */
-.dots-jump > div {
-  -webkit-animation: dots-jump 1.2s infinite ease;
-  animation: dots-jump 1.2s infinite ease;
-  animation-delay: 0.2s;
+#loader .dots-jump div:nth-child(2) {
+    animation-delay: 200ms;
 }
 
-.dots-jump > div:nth-of-type(1) {
-  animation-delay: 0.4s;
+#loader .dots-jump div:nth-child(3) {
+    animation-delay: 300ms;
 }
 
-.dots-jump > div:nth-of-type(3) {
-  animation-delay: 0s;
+@keyframes jump {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
 }
-
-@-webkit-keyframes dots-jump {
-  0% {
-    top: 0;
-  }
-
-  40% {
-    top: -6px;
-  }
-
-  80% {
-    top: 0;
-  }
-
-}
-
-@keyframes dots-jump {
-  0% {
-    top: 0;
-  }
-
-  40% {
-    top: -6px;
-  }
-
-  80% {
-    top: 0;
-  }
-
-}
-
-/* dots fade */
-.dots-fade > div {
-  -webkit-animation: dots-fade 1.6s infinite ease;
-  animation: dots-fade 1.6s infinite ease;
-  animation-delay: 0.4s;
-}
-
-.dots-fade > div:nth-of-type(1) {
-  animation-delay: 0.8s;
-}
-
-.dots-fade > div:nth-of-type(3) {
-  animation-delay: 0s;
-}
-
-@-webkit-keyframes dots-fade {
-  0% {
-    opacity: 1;
-  }
-
-  40% {
-    opacity: 0.2;
-  }
-
-  80% {
-    opacity: 1;
-  }
-
-}
-
-@keyframes dots-fade {
-  0% {
-    opacity: 1;
-  }
-
-  40% {
-    opacity: 0.2;
-  }
-
-  80% {
-    opacity: 1;
-  }
-
-}
-
-/* dots pulse */
-.dots-pulse > div {
-  -webkit-animation: dots-pulse 1.2s infinite ease;
-  animation: dots-pulse 1.2s infinite ease;
-  animation-delay: 0.2s;
-}
-
-.dots-pulse > div:nth-of-type(1) {
-  animation-delay: 0.4s;
-}
-
-.dots-pulse > div:nth-of-type(3) {
-  animation-delay: 0s;
-}
-
-@-webkit-keyframes dots-pulse {
-  0% {
-    -webkit-transform: scale(1);
-    transform: scale(1);
-  }
-
-  40% {
-    -webkit-transform: scale(1.1);
-    transform: scale(1.3);
-  }
-
-  80% {
-    -webkit-transform: scale(1);
-    transform: scale(1);
-  }
-
-}
-
-@keyframes dots-pulse {
-  0% {
-    -webkit-transform: scale(1);
-    transform: scale(1);
-  }
-
-  40% {
-    -webkit-transform: scale(1.1);
-    transform: scale(1.3);
-  }
-
-  80% {
-    -webkit-transform: scale(1);
-    transform: scale(1);
-  }
-
-}
-
 
 /* ===================================================================
  * # forms
@@ -2393,7 +2280,7 @@ input::-moz-focus-inner {
 /* animate .hero-content
  * ------------------------------------------------------------------- */
 html.ss-preload .hero-content {
-  opacity: 0;
+    opacity: 0;
 }
 
 html.ss-loaded .hero-content {
@@ -3107,7 +2994,7 @@ html.no-csstransitions .hero-content {
  * # social
  *
  * ------------------------------------------------------------------- */
-.s-social {
+ .s-social {
   padding-top: 10.4rem;
   padding-bottom: 9.6rem;
   background-color: #000000;
@@ -3159,21 +3046,19 @@ html.no-csstransitions .hero-content {
 }
 
 .social-list__icon::before {
-  content: "";
+  content: '';  
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  -webkit-transform: translate3d(-50%, -50%, 0);
+  transform: translate3d(-50%, -50%, 0);
   display: block;
   height: 2rem;
   width: 2rem;
   background-repeat: no-repeat;
   background-position: center center;
   background-size: contain;
-  -webkit-transform: translate3d(-50%, -50%, 0);
-  transform: translate3d(-50%, -50%, 0);
-  position: absolute;
-  top: 50%;
-  left: 50%;
-}
-
-.social-list__icon--facebook::before {
+  filter: brightness(0) invert(1);  
   background-image: url(../images/icons/social/icon-facebook.svg);
 }
 
@@ -3709,6 +3594,146 @@ html.no-csstransitions .hero-content {
   }
 
 }
+
+/* Prayer Request Form Styles */
+.prayer-form {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 4rem;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.prayer-form .form-field {
+    margin-bottom: 2.4rem;
+    position: relative;
+    transition: opacity 0.3s ease;
+}
+
+.prayer-form input:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+}
+
+.prayer-form label {
+    display: block;
+    margin-bottom: 0.8rem;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 600;
+    font-size: 1.5rem;
+    color: #333333;
+}
+
+.prayer-form input[type="text"],
+.prayer-form input[type="email"],
+.prayer-form input[type="tel"],
+.prayer-form select,
+.prayer-form textarea {
+    width: 100%; /* Use full width */
+    padding: 1.2rem 1.5rem;
+    border: 1px solid #d3d3d3;
+    background-color: #ffffff;
+    font-size: 1.6rem;
+    color: #333333;
+    transition: all 0.3s ease;
+    margin: 0; /* Remove auto margins */
+    display: block;
+    text-align: left;
+}
+
+.prayer-form select {
+    height: 5rem;
+    cursor: pointer;
+    padding: 0 1.5rem;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1.5rem center;
+    background-size: 1.5rem;
+}
+
+.prayer-form textarea {
+    min-height: 15rem;
+    resize: vertical;
+}
+
+.prayer-form .error-message {
+    color: #dc3545;
+    font-size: 1.2rem;
+    margin-top: 0.5rem;
+    font-family: "Open Sans", sans-serif;
+}
+
+.prayer-form .checkbox-container {
+    display: flex;
+    align-items: flex-start;
+    margin: 1rem 0;
+    cursor: pointer;
+    font-family: "Open Sans", sans-serif;
+    font-size: 1.5rem;
+    color: #333333;
+    line-height: 1.4;
+}
+
+.prayer-form .checkbox-container input[type="checkbox"] {
+    margin: 0.3rem 1rem 0 0;
+    width: 1.8rem;
+    height: 1.8rem;
+}
+
+.prayer-form button[type="submit"] {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    padding: 0;
+    height: 5rem;
+    line-height: 5rem;
+    border: none;
+    border-radius: 4px;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 600;
+    font-size: 1.5rem;
+    letter-spacing: .1rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: auto;
+    min-width: 200px;
+    display: block;
+    margin: 3rem auto 0;
+    text-align: center;
+}
+
+.prayer-form button[type="submit"]:hover {
+    background-color: #333333;
+    transform: translateY(-1px);
+}
+
+.prayer-form input:focus,
+.prayer-form select:focus,
+.prayer-form textarea:focus {
+    border-color: #666666;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+    outline: none;
+}
+
+.prayer-form ::placeholder {
+    color: #999999;
+}
+
+@media screen and (max-width: 600px) {
+    .prayer-form {
+        padding: 2rem;
+    }
+    
+    .prayer-form button[type="submit"] {
+        width: 100%;
+        margin-top: 2rem;
+    }
+}
+
 #logo {
   position: relative;
   height: 75px;
@@ -3852,7 +3877,6 @@ h3#emmanuelcenter {
     width: 100%; /* Use full width */
     padding: 1.2rem;
     border: 1px solid #d3d3d3;
-    border-radius: 4px;
     background-color: #ffffff;
     font-size: 1.6rem;
     color: #000000;
@@ -3985,7 +4009,6 @@ h3#emmanuelcenter {
     width: 100%;
     padding: 1.2rem;
     border: 1px solid #d3d3d3;
-    border-radius: 4px;
     background-color: #ffffff;
     font-size: 1.6rem;
     color: #000000;

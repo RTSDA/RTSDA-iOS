@@ -4,18 +4,31 @@ import WebKit
 class GiveOnlineWebViewStateModel: ObservableObject {
     @Published var isLoading: Bool = true
     @Published var error: Error? = nil
+    @Published var canGoBack: Bool = false
+    @Published var canGoForward: Bool = false
+    weak var webView: WKWebView?
+    
+    func goBack() {
+        webView?.goBack()
+    }
+    
+    func goForward() {
+        webView?.goForward()
+    }
 }
 
 struct GiveOnlineView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var webViewState = GiveOnlineWebViewStateModel()
+    let url = URL(string: "https://adventistgiving.org/donate/AN4MJG")!
     
     var body: some View {
         NavigationStack {
-            GiveOnlineWebView(url: URL(string: "https://adventistgiving.org/donate/AN4MJG")!, webViewState: webViewState)
+            WebView(url: url, webViewState: webViewState)
                 .overlay {
                     if webViewState.isLoading {
-                        ProgressView("Loading...")
+                        ProgressView()
+                            .scaleEffect(1.5)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(Color(.systemBackground).opacity(0.8))
                     }
@@ -31,12 +44,32 @@ struct GiveOnlineView: View {
                                 .imageScale(.medium)
                         }
                     }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        HStack {
+                            if webViewState.canGoBack {
+                                Button(action: {
+                                    webViewState.goBack()
+                                }) {
+                                    Image(systemName: "chevron.backward")
+                                }
+                            }
+                            
+                            if webViewState.canGoForward {
+                                Button(action: {
+                                    webViewState.goForward()
+                                }) {
+                                    Image(systemName: "chevron.forward")
+                                }
+                            }
+                        }
+                    }
                 }
         }
     }
 }
 
-struct GiveOnlineWebView: UIViewRepresentable {
+struct WebView: UIViewRepresentable {
     let url: URL
     @ObservedObject var webViewState: GiveOnlineWebViewStateModel
     
@@ -45,36 +78,27 @@ struct GiveOnlineWebView: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> WKWebView {
-        let preferences = WKWebpagePreferences()
-        preferences.allowsContentJavaScript = true
-        
         let configuration = WKWebViewConfiguration()
-        configuration.defaultWebpagePreferences = preferences
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.scrollView.isScrollEnabled = true
+        webView.scrollView.alwaysBounceVertical = false
         
-        // Add refresh control
-        let refreshControl = UIRefreshControl()
-        refreshControl.addTarget(context.coordinator, action: #selector(Coordinator.handleRefresh(_:)), for: .valueChanged)
-        webView.scrollView.refreshControl = refreshControl
-        
-        // Enable zoom
-        webView.configuration.preferences.javaScriptEnabled = true
-        webView.scrollView.setZoomScale(1.0, animated: false)
-        webView.scrollView.minimumZoomScale = 0.5
-        webView.scrollView.maximumZoomScale = 3.0
-        
-        // Load URL
-        let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
-        webView.load(request)
+        webViewState.webView = webView
+        webView.load(URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad))
         
         return webView
     }
     
-    func updateUIView(_ webView: WKWebView, context: Context) {}
+    func updateUIView(_ webView: WKWebView, context: Context) {
+        DispatchQueue.main.async {
+            webViewState.canGoBack = webView.canGoBack
+            webViewState.canGoForward = webView.canGoForward
+        }
+    }
     
     class Coordinator: NSObject, WKNavigationDelegate {
         @ObservedObject private var webViewState: GiveOnlineWebViewStateModel
@@ -83,33 +107,32 @@ struct GiveOnlineWebView: UIViewRepresentable {
             self.webViewState = webViewState
         }
         
-        @objc func handleRefresh(_ refreshControl: UIRefreshControl) {
-            if let webView = refreshControl.superview?.superview as? WKWebView {
-                webView.reload()
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            DispatchQueue.main.async {
+                self.webViewState.isLoading = true
             }
         }
         
-        // MARK: - WKNavigationDelegate
-        
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            webViewState.isLoading = true
-        }
-        
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            webViewState.isLoading = false
-            webView.scrollView.refreshControl?.endRefreshing()
+            DispatchQueue.main.async {
+                self.webViewState.isLoading = false
+                self.webViewState.canGoBack = webView.canGoBack
+                self.webViewState.canGoForward = webView.canGoForward
+            }
         }
         
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            webViewState.isLoading = false
-            webViewState.error = error
-            webView.scrollView.refreshControl?.endRefreshing()
+            DispatchQueue.main.async {
+                self.webViewState.isLoading = false
+                self.webViewState.error = error
+            }
         }
         
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            webViewState.isLoading = false
-            webViewState.error = error
-            webView.scrollView.refreshControl?.endRefreshing()
+            DispatchQueue.main.async {
+                self.webViewState.isLoading = false
+                self.webViewState.error = error
+            }
         }
     }
 }

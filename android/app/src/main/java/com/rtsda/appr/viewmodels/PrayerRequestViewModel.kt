@@ -22,9 +22,10 @@ data class PrayerRequestState(
 )
 
 @HiltViewModel
-class PrayerRequestViewModel @Inject constructor() : ViewModel() {
+class PrayerRequestViewModel @Inject constructor(
+    private val service: PrayerRequestService
+) : ViewModel() {
 
-    private val service = PrayerRequestService.getInstance()
     private val _state = MutableStateFlow(PrayerRequestState())
     val state: StateFlow<PrayerRequestState> = _state.asStateFlow()
 
@@ -51,12 +52,11 @@ class PrayerRequestViewModel @Inject constructor() : ViewModel() {
                     requestType = requestType
                 )
                 
-                val success = service.submitRequest(prayerRequest)
+                val result = service.submitRequest(prayerRequest)
                 
-                _state.value = if (success) {
-                    PrayerRequestState(isSuccess = true)
-                } else {
-                    PrayerRequestState(error = "Failed to submit prayer request")
+                _state.value = when {
+                    result.isSuccess -> PrayerRequestState(isSuccess = true)
+                    else -> PrayerRequestState(error = result.exceptionOrNull()?.message ?: "Failed to submit prayer request")
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Error submitting prayer request")

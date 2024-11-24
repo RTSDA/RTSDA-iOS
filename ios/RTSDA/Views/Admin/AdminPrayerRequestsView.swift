@@ -12,7 +12,18 @@ struct AdminPrayerRequestsView: View {
     @State private var prayerRequestToDelete: PrayerRequest?
     
     var filteredRequests: [PrayerRequest] {
-        viewModel.filteredRequests.filter { request in
+        // Start with the base filtered requests from the view model
+        let requests = viewModel.filteredRequests
+        
+        print("[AdminPrayerRequestsView] -------- Filtering Requests --------")
+        print("[AdminPrayerRequestsView] Base requests from view model: \(requests.count)")
+        print("[AdminPrayerRequestsView] Active filters:")
+        print(" - Search text: '\(searchText)'")
+        print(" - Type filter: \(selectedType?.rawValue ?? "All")")
+        print(" - Show approved only: \(showApprovedOnly)")
+        print(" - Show private only: \(showPrivateOnly)")
+        
+        let filtered = requests.filter { request in
             let matchesSearch = searchText.isEmpty || 
                 request.name.localizedCaseInsensitiveContains(searchText) ||
                 request.email.localizedCaseInsensitiveContains(searchText) ||
@@ -22,23 +33,37 @@ struct AdminPrayerRequestsView: View {
             let matchesApproved = !showApprovedOnly || request.status == .approved
             let matchesPrivate = !showPrivateOnly || request.isPrivate
             
-            return matchesSearch && matchesType && matchesApproved && matchesPrivate
+            let shouldInclude = matchesSearch && matchesType && matchesApproved && matchesPrivate
+            
+            if !shouldInclude {
+                print("[AdminPrayerRequestsView] Filtered out request \(request.id):")
+                if !matchesSearch { print(" - Failed search criteria") }
+                if !matchesType { print(" - Wrong type (\(request.requestType.rawValue))") }
+                if !matchesApproved { print(" - Not approved") }
+                if !matchesPrivate { print(" - Not private") }
+            }
+            
+            return shouldInclude
         }
+        
+        print("[AdminPrayerRequestsView] Filtered count: \(filtered.count)")
+        print("[AdminPrayerRequestsView] ----------------------------------")
+        
+        return filtered
     }
     
     var body: some View {
         List {
             if viewModel.isLoading {
                 ProgressView()
-            } else if !viewModel.prayerRequests.isEmpty {
-                FiltersSection
-                RequestsList
+            } else if viewModel.prayerRequests.isEmpty {
+                Text("No prayer requests in the database")
+                    .foregroundColor(.secondary)
+            } else if filteredRequests.isEmpty {
+                Text("No prayer requests match the current filters")
+                    .foregroundColor(.secondary)
             } else {
-                ContentUnavailableView(
-                    "No Prayer Requests",
-                    systemImage: "hands.sparkles",
-                    description: Text("Prayer requests will appear here")
-                )
+                RequestsList
             }
         }
         .searchable(text: $searchText, prompt: "Search requests")
@@ -65,24 +90,16 @@ struct AdminPrayerRequestsView: View {
         } message: {
             Text("Are you sure you want to delete this prayer request?")
         }
+        .alert("Error", isPresented: $viewModel.showError) {
+            Button("OK") {
+                viewModel.showError = false
+                viewModel.errorMessage = ""
+            }
+        } message: {
+            Text(viewModel.errorMessage)
+        }
         .onAppear {
             print("AdminPrayerRequestsView appeared")
-        }
-    }
-    
-    private var FiltersSection: some View {
-        Section {
-            Toggle("Show Approved Only", isOn: $showApprovedOnly)
-            Toggle("Show Private Only", isOn: $showPrivateOnly)
-            if let type = selectedType {
-                HStack {
-                    Text("Type: \(type.rawValue)")
-                    Spacer()
-                    Button("Clear") {
-                        selectedType = nil
-                    }
-                }
-            }
         }
     }
     
@@ -108,13 +125,22 @@ struct AdminPrayerRequestsView: View {
                 Section("Request Type") {
                     ForEach(PrayerRequest.RequestType.allCases, id: \.self) { type in
                         Button {
-                            selectedType = (selectedType == type) ? nil : type
+                            print("[AdminPrayerRequestsView] Filter type selected: \(type.rawValue)")
+                            withAnimation {
+                                if type == .all {
+                                    // When selecting "All", clear the selectedType
+                                    selectedType = nil
+                                } else {
+                                    selectedType = type
+                                }
+                                viewModel.setRequestType(type)
+                            }
                             showFilters = false
                         } label: {
                             HStack {
                                 Text(type.rawValue)
                                 Spacer()
-                                if selectedType == type {
+                                if selectedType == type || (type == .all && selectedType == nil) {
                                     Image(systemName: "checkmark")
                                 }
                             }
@@ -150,10 +176,19 @@ struct RequestRow: View {
                 Text(request.name)
                     .font(.headline)
                 Spacer()
-                if request.isPrivate {
-                    Label("Private", systemImage: "lock.fill")
+                HStack(spacing: 8) {
+                    Text(request.requestType.rawValue)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
+                    
+                    if request.isPrivate {
+                        Label("Private", systemImage: "lock.fill")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             

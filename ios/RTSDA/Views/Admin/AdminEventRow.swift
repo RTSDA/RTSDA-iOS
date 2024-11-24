@@ -8,41 +8,11 @@ struct AdminEventRow: View {
     let onUnpublish: () -> Void
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
                 Text(event.title)
                     .font(.headline)
-                Text(event.formattedStartDate)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                if !event.location.isEmpty {
-                    Text(event.location)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            HStack(spacing: 12) {
-                if event.isPublished {
-                    Text("Published")
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.green.opacity(0.2))
-                        .foregroundColor(.green)
-                        .cornerRadius(4)
-                } else {
-                    Text("Draft")
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.orange.opacity(0.2))
-                        .foregroundColor(.orange)
-                        .cornerRadius(4)
-                }
-                
+                Spacer()
                 Menu {
                     Button(action: onEdit) {
                         Label("Edit", systemImage: "pencil")
@@ -62,12 +32,37 @@ struct AdminEventRow: View {
                         Label("Delete", systemImage: "trash")
                     }
                 } label: {
-                    Image(systemName: "ellipsis")
-                        .foregroundColor(.primary)
-                        .padding(8)
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 20))
+                }
+            }
+            
+            Text(event.description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+            
+            HStack(spacing: 16) {
+                Label(event.startDate.formatted(date: .abbreviated, time: .shortened),
+                      systemImage: "calendar")
+                    .font(.caption)
+                
+                if !event.location.isEmpty {
+                    Label(event.location, systemImage: "mappin.and.ellipse")
+                        .font(.caption)
+                }
+                
+                Spacer()
+                
+                if event.isPublished {
+                    Label("Published", systemImage: "eye")
+                        .font(.caption)
+                        .foregroundColor(.green)
                 }
             }
         }
-        .padding(.vertical, 8)
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
     }
 }

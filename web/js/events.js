@@ -1,5 +1,7 @@
-import { db } from './firebase-config.js';
-import { collection, query, orderBy, limit, getDocs, where, Timestamp, setDoc, doc, deleteDoc, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { initializeFirebase, db } from './firebase-config.js';
+import { collection, query, orderBy, limit, getDocs, where, Timestamp, setDoc, doc, deleteDoc, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+let firestore;
 
 // Helper function to format recurrence type
 function formatRecurrenceType(type) {
@@ -46,10 +48,14 @@ function calculateNextDate(currentDate, recurrenceType) {
 
 // Update recurring events that have passed
 async function updateRecurringEvents() {
-    const eventsRef = collection(db, 'events');
-    
     try {
+        await initializeFirebase();
+        if (!db) {
+            throw new Error('Firebase database not initialized');
+        }
+        
         console.log('Starting recurring events update...');
+        const eventsRef = collection(db, 'events');
         
         // Get all recurring events that need updating
         const now = new Date();
@@ -115,7 +121,7 @@ async function updateRecurringEvents() {
                     Duration: ${duration} seconds`);
                 
                 // Update the event with new dates
-                await updateDoc(doc(eventsRef, event.id), {
+                await updateDoc(doc(db, 'events', event.id), {
                     startDate: newStartSeconds,
                     endDate: newEndSeconds
                 });
@@ -137,10 +143,15 @@ async function updateRecurringEvents() {
 
 // Sync recurring events
 async function syncRecurringEvents() {
-    const eventsRef = collection(db, 'events');
-    
     try {
+        await initializeFirebase();
+        if (!db) {
+            throw new Error('Firebase database not initialized');
+        }
+        
         console.log('Starting recurring events sync...');
+        
+        const eventsRef = collection(db, 'events');
         
         // Get all recurring events
         const q = query(
@@ -206,6 +217,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         await syncRecurringEvents();
         
         // Then load events
+        await initializeFirebase();
+        if (!db) {
+            throw new Error('Firebase database not initialized');
+        }
+        
+        console.log('Firebase initialized successfully, fetching events...');
+        
         const eventsRef = collection(db, 'events');
         const q = query(eventsRef, orderBy('startDate', 'asc'));
         const querySnapshot = await getDocs(q);
@@ -342,21 +360,41 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // Load and display existing events
 async function loadEvents() {
-    const eventsList = document.getElementById('eventsList');
-    if (!eventsList) return;
-
-    if (!auth.currentUser) return;
-
+    console.log('Starting events load...');
     try {
+        // Initialize Firebase first
+        await initializeFirebase();
+        
+        if (!db) {
+            throw new Error('Firebase database not initialized');
+        }
+        
+        console.log('Firebase initialized successfully, fetching events...');
+        
+        const eventsList = document.getElementById('eventsList');
+        if (!eventsList) return;
+
         const eventsRef = collection(db, 'events');
-        const q = query(eventsRef, orderBy('startDate', 'asc'));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const q = query(
+            eventsRef, 
+            where('endDate', '>=', Timestamp.fromDate(today)),
+            orderBy('endDate', 'asc')
+        );
+        
         const querySnapshot = await getDocs(q);
         
         let eventsHtml = '';
         querySnapshot.forEach((doc) => {
             const event = doc.data();
-            const startDate = event.startDate.toDate();
-            const endDate = event.endDate.toDate();
+            const startDate = event.startDate instanceof Timestamp 
+                ? event.startDate.toDate() 
+                : new Date(event.startDate);
+            const endDate = event.endDate instanceof Timestamp 
+                ? event.endDate.toDate() 
+                : new Date(event.endDate);
             
             const recurrenceLabel = {
                 'NONE': 'One-time',
@@ -366,22 +404,30 @@ async function loadEvents() {
                 'FIRST_TUESDAY': 'First Tuesday'
             }[event.recurrenceType || 'NONE'];
             
+            const eventUrl = getEventPage(event.title || '');
+            
             eventsHtml += `
                 <div class="event-item">
-                    <h4>${event.title}</h4>
-                    <p>Start: ${startDate.toLocaleDateString()} ${event.time}</p>
-                    <p>End: ${endDate.toLocaleDateString()} ${event.endTime}</p>
-                    <p>Location: ${event.location}</p>
+                    <h4>
+                        <a href="${eventUrl}" class="event-title-link">
+                            ${event.title}
+                        </a>
+                    </h4>
+                    <p>Start: ${startDate.toLocaleDateString()} ${event.time || ''}</p>
+                    <p>End: ${endDate.toLocaleDateString()} ${event.endTime || ''}</p>
+                    <p>Location: ${event.location || 'TBD'}</p>
                     <p>Recurrence: ${recurrenceLabel}</p>
-                    <div class="event-actions">
-                        <button onclick="editEvent('${doc.id}')" class="btn btn--stroke">Edit</button>
-                        <button onclick="deleteEvent('${doc.id}')" class="btn btn--stroke">Delete</button>
-                    </div>
+                    ${auth.currentUser ? `
+                        <div class="event-actions">
+                            <button onclick="editEvent('${doc.id}')" class="btn btn--stroke">Edit</button>
+                            <button onclick="deleteEvent('${doc.id}')" class="btn btn--stroke">Delete</button>
+                        </div>
+                    ` : ''}
                 </div>
             `;
         });
         
-        eventsList.innerHTML = eventsHtml;
+        eventsList.innerHTML = eventsHtml || '<p>No upcoming events found.</p>';
     } catch (error) {
         console.error("Error loading events: ", error);
         eventsList.innerHTML = '<p>Error loading events. Please try again.</p>';

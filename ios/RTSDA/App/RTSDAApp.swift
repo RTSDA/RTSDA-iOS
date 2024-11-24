@@ -27,6 +27,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             "youtube_api_key": "YOUR_DEV_API_KEY" as NSObject
         ])
         
+        // Check for installed apps in the background
+        Task {
+            await ResourceService.shared.checkInstalledApps()
+        }
+        
+        return true
+    }
+    
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+        // Handle URL scheme
         return true
     }
 }
@@ -36,23 +46,26 @@ struct RTSDAApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var settings = AppSettings.shared
     @State private var showingSplash = true
+    @StateObject private var splashViewModel = SplashScreenViewModel()
     
     var body: some Scene {
         WindowGroup {
             Group {
                 if showingSplash {
-                    SplashScreenView()
+                    SplashScreenView(viewModel: splashViewModel)
                         .transition(
                             .asymmetric(
                                 insertion: .opacity,
                                 removal: .opacity.combined(with: .scale(scale: 0.9))
                             )
                         )
-                        .onAppear {
-                            // Add a slight delay before starting the transition
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                withAnimation(.easeOut(duration: 0.8)) {
-                                    showingSplash = false
+                        .onChange(of: splashViewModel.isLoaded) { isLoaded in
+                            if isLoaded {
+                                // Add a delay to ensure the verse is readable
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                    withAnimation(.easeOut(duration: 0.8)) {
+                                        showingSplash = false
+                                    }
                                 }
                             }
                         }

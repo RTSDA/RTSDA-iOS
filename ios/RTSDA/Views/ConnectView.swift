@@ -5,6 +5,12 @@ struct ConnectView: View {
     @Environment(\.sizeCategory) private var sizeCategory
     @State private var showingMailComposer = false
     @State private var showingError = false
+    @State private var mailData = ComposeMailData(
+        toRecipients: ["info@rockvilletollandsda.org"],
+        subject: "Contact from RTSDA App",
+        messageBody: "",
+        attachments: []
+    )
     
     private let churchPhone = "860-875-0450"
     private let churchEmail = "info@rockvilletollandsda.org"
@@ -86,6 +92,9 @@ struct ConnectView: View {
             }
         }
         .navigationTitle("Contact & Connect")
+        .sheet(isPresented: $showingMailComposer) {
+            MailView(mailData: $mailData)
+        }
         .alert("Error", isPresented: $showingError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -98,6 +107,8 @@ struct ConnectView: View {
     private func composeEmail() {
         if MFMailComposeViewController.canSendMail() {
             showingMailComposer = true
+        } else if let mailtoURL = URL(string: "mailto:\(churchEmail)") {
+            UIApplication.shared.open(mailtoURL)
         } else {
             showingError = true
         }
@@ -149,6 +160,65 @@ struct ConnectView: View {
     }
 }
 
+struct ComposeMailData {
+    let toRecipients: [String]
+    let subject: String
+    let messageBody: String
+    let attachments: [AttachmentData]
+}
+
+struct AttachmentData {
+    let data: Data
+    let mimeType: String
+    let fileName: String
+}
+
+struct MailView: UIViewControllerRepresentable {
+    @Environment(\.presentationMode) private var presentation
+    @Binding var mailData: ComposeMailData
+    
+    class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        @Binding var presentation: PresentationMode
+        
+        init(presentation: Binding<PresentationMode>) {
+            _presentation = presentation
+        }
+        
+        func mailComposeController(_ controller: MFMailComposeViewController,
+                                 didFinishWith result: MFMailComposeResult,
+                                 error: Error?) {
+            if let error = error {
+                print("Mail compose error: \(error.localizedDescription)")
+            }
+            $presentation.wrappedValue.dismiss()
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(presentation: presentation)
+    }
+    
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let mailComposer = MFMailComposeViewController()
+        mailComposer.mailComposeDelegate = context.coordinator
+        mailComposer.setToRecipients(mailData.toRecipients)
+        mailComposer.setSubject(mailData.subject)
+        mailComposer.setMessageBody(mailData.messageBody, isHTML: false)
+        
+        for attachment in mailData.attachments {
+            mailComposer.addAttachmentData(
+                attachment.data,
+                mimeType: attachment.mimeType,
+                fileName: attachment.fileName
+            )
+        }
+        
+        return mailComposer
+    }
+    
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+}
+
 struct ContactButton: View {
     let title: String
     let icon: String
@@ -160,30 +230,27 @@ struct ContactButton: View {
         Button(action: action) {
             HStack {
                 Image(systemName: icon)
+                    .foregroundColor(.accentColor)
                     .imageScale(sizeCategory.isAccessibilityCategory ? .large : .medium)
-                    .foregroundColor(.blue)
                     .frame(width: 24, height: 24)
                 
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.headline)
-                        .dynamicTypeSize(...DynamicTypeSize.accessibility5)
+                        .foregroundColor(.primary)
                     Text(detail)
                         .font(.subheadline)
-                        .dynamicTypeSize(...DynamicTypeSize.accessibility5)
                         .foregroundColor(.secondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .imageScale(sizeCategory.isAccessibilityCategory ? .large : .medium)
                     .foregroundColor(.secondary)
+                    .imageScale(.small)
             }
-            .padding(.vertical, 8)
         }
-        .accessibilityLabel("\(title): \(detail)")
-        .accessibilityHint("Tap to \(title.lowercased())")
+        .buttonStyle(.plain)
     }
 }
 

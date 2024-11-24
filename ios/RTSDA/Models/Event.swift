@@ -142,80 +142,94 @@ struct Event: Identifiable, Codable {
         )
     }
     
-    func addToCalendar() {
+    func addToCalendar() async throws -> Bool {
         let eventStore = EKEventStore()
         
-        Task {
-            do {
-                // Request calendar access if we don't have it
-                if #available(iOS 17.0, *) {
-                    try await eventStore.requestFullAccessToEvents()
-                } else {
-                    try await eventStore.requestAccess(to: .event)
-                }
-                
-                // Create the event
-                let ekEvent = EKEvent(eventStore: eventStore)
-                ekEvent.title = title
-                ekEvent.notes = description
-                ekEvent.startDate = startDate
-                ekEvent.endDate = endDate ?? startDate.addingTimeInterval(3600) // Default to 1 hour
-                ekEvent.location = location
-                
-                // Set recurrence rule if needed
-                if recurrenceType != .none {
-                    let recurrenceRule: EKRecurrenceRule?
-                    
-                    switch recurrenceType {
-                    case .none:
-                        recurrenceRule = nil
-                    case .daily:
-                        recurrenceRule = EKRecurrenceRule(
-                            recurrenceWith: .daily,
-                            interval: 1,
-                            end: nil)
-                    case .weekly:
-                        recurrenceRule = EKRecurrenceRule(
-                            recurrenceWith: .weekly,
-                            interval: 1,
-                            end: nil)
-                    case .biweekly:
-                        recurrenceRule = EKRecurrenceRule(
-                            recurrenceWith: .weekly,
-                            interval: 2,
-                            end: nil)
-                    case .monthly:
-                        recurrenceRule = EKRecurrenceRule(
-                            recurrenceWith: .monthly,
-                            interval: 1,
-                            end: nil)
-                    case .firstTuesday:
-                        // For first Tuesday, we need to set up a monthly recurrence
-                        // that only occurs on the first Tuesday
-                        recurrenceRule = EKRecurrenceRule(
-                            recurrenceWith: .monthly,
-                            interval: 1,
-                            daysOfTheWeek: [EKRecurrenceDayOfWeek(.tuesday)],
-                            daysOfTheMonth: nil,
-                            monthsOfTheYear: nil,
-                            weeksOfTheYear: nil,
-                            daysOfTheYear: nil,
-                            setPositions: [1], // First occurrence
-                            end: nil)
-                    }
-                    
-                    if let rule = recurrenceRule {
-                        ekEvent.addRecurrenceRule(rule)
-                    }
-                }
-                
-                // Save to default calendar
-                ekEvent.calendar = eventStore.defaultCalendarForNewEvents
-                
-                try eventStore.save(ekEvent, span: .thisEvent)
-            } catch {
-                print("Error adding event to calendar: \(error)")
+        // Check current authorization status
+        let status = EKEventStore.authorizationStatus(for: .event)
+        
+        switch status {
+        case .notDetermined:
+            // Request access
+            let granted = if #available(iOS 17.0, *) {
+                try await eventStore.requestFullAccessToEvents()
+            } else {
+                try await eventStore.requestAccess(to: .event)
             }
+            
+            if !granted {
+                throw EventError.calendarAccessDenied
+            }
+            
+        case .denied, .restricted:
+            throw EventError.calendarAccessDenied
+            
+        case .authorized, .fullAccess:
+            break
+            
+        @unknown default:
+            break
+        }
+        
+        // Create and save the event
+        do {
+            let ekEvent = EKEvent(eventStore: eventStore)
+            ekEvent.title = title
+            ekEvent.notes = description
+            ekEvent.startDate = startDate
+            ekEvent.endDate = endDate ?? startDate.addingTimeInterval(3600)
+            ekEvent.location = location
+            
+            // Set recurrence rule if needed
+            if recurrenceType != .none {
+                let recurrenceRule: EKRecurrenceRule?
+                
+                switch recurrenceType {
+                case .none:
+                    recurrenceRule = nil
+                case .daily:
+                    recurrenceRule = EKRecurrenceRule(
+                        recurrenceWith: .daily,
+                        interval: 1,
+                        end: nil)
+                case .weekly:
+                    recurrenceRule = EKRecurrenceRule(
+                        recurrenceWith: .weekly,
+                        interval: 1,
+                        end: nil)
+                case .biweekly:
+                    recurrenceRule = EKRecurrenceRule(
+                        recurrenceWith: .weekly,
+                        interval: 2,
+                        end: nil)
+                case .monthly:
+                    recurrenceRule = EKRecurrenceRule(
+                        recurrenceWith: .monthly,
+                        interval: 1,
+                        end: nil)
+                case .firstTuesday:
+                    recurrenceRule = EKRecurrenceRule(
+                        recurrenceWith: .monthly,
+                        interval: 1,
+                        daysOfTheWeek: [EKRecurrenceDayOfWeek(.tuesday)],
+                        daysOfTheMonth: nil,
+                        monthsOfTheYear: nil,
+                        weeksOfTheYear: nil,
+                        daysOfTheYear: nil,
+                        setPositions: [1],
+                        end: nil)
+                }
+                
+                if let rule = recurrenceRule {
+                    ekEvent.addRecurrenceRule(rule)
+                }
+            }
+            
+            ekEvent.calendar = eventStore.defaultCalendarForNewEvents
+            try eventStore.save(ekEvent, span: .thisEvent)
+            return true
+        } catch {
+            throw EventError.calendarError(error.localizedDescription)
         }
     }
 }
@@ -332,11 +346,17 @@ extension Event {
 // MARK: - Event Error
 enum EventError: LocalizedError {
     case invalidStartDate
+    case calendarAccessDenied
+    case calendarError(String)
     
     var errorDescription: String? {
         switch self {
         case .invalidStartDate:
             return "Invalid start date format"
+        case .calendarAccessDenied:
+            return "Calendar access is required to add events. Please enable it in Settings."
+        case .calendarError(let message):
+            return "Calendar error: \(message)"
         }
     }
 }

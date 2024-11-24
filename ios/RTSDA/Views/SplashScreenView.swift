@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SplashScreenView: View {
     @Environment(\.colorScheme) var colorScheme
-    @StateObject private var viewModel = SplashScreenViewModel()
+    @ObservedObject var viewModel: SplashScreenViewModel
     @State private var isAnimating = false
     
     var body: some View {
@@ -23,6 +23,7 @@ struct SplashScreenView: View {
                                 .font(.title3)
                                 .fontWeight(.medium)
                                 .foregroundColor(.secondary)
+                                .transition(.opacity)
                         }
                         
                         Text(verse.text)
@@ -30,12 +31,15 @@ struct SplashScreenView: View {
                             .fontWeight(.medium)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
+                            .transition(.opacity)
                         
                         Text("— \(verse.reference)")
                             .font(.headline)
                             .foregroundColor(.secondary)
+                            .transition(.opacity)
                     }
                     .padding(.horizontal)
+                    .transition(.opacity)
                 } else if let error = viewModel.error {
                     VStack(spacing: 12) {
                         Text(error)
@@ -51,6 +55,7 @@ struct SplashScreenView: View {
                         }
                     }
                     .padding()
+                    .transition(.opacity)
                 } else {
                     // Empty view to maintain spacing
                     Color.clear
@@ -69,5 +74,5 @@ struct SplashScreenView: View {
 }
 
 #Preview {
-    SplashScreenView()
+    SplashScreenView(viewModel: SplashScreenViewModel())
 }

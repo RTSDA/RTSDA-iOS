@@ -89,8 +89,43 @@ fastlane/test_output
 
 iOSInjectionProject/
 
-# Environment files and sensitive information
-*.env
-.env*
-GoogleService-Info.plist
+# Web specific
+web/node_modules/
+web/.env
+
+# Firebase and Google Services
 google-services.json
+GoogleService-Info.plist
+**/google-services.json
+**/GoogleService-Info.plist
+**/processDebugGoogleServices/
+**/processReleaseGoogleServices/
+**/merged.dir/
+**/debug/
+**/release/
+
+# Build directories
+**/build/
+**/dist/
+**/out/
+
+# Environment and secrets
+.env*
+!.env.example
+!.env.template
+**/*.env
+**/*.env.*
+**/env-config.local.js
+**/firebase-config.local.js
+
+# IDE and system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.swp
+*.swo
+
+# Environment Variables and Secrets
+**/env-config.local.js
+**/firebase-config.local.js

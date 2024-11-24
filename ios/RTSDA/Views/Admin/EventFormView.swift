@@ -1,31 +1,58 @@
 import SwiftUI
+import FirebaseAuth
 
 struct EventFormView: View {
     let event: Event?
-    let validationState: EventValidationState
+    @StateObject private var formState = EventFormState()
     let onSave: (Event) -> Void
     
-    @Environment(\.dismiss) private var dismiss
-    @State private var title: String
-    @State private var description: String
-    @State private var startDate: Date
-    @State private var endDate: Date
-    @State private var location: String
-    @State private var locationUrl: String
-    @State private var recurrenceType: RecurrenceType
+    @State private var title: String = ""
+    @State private var description: String = ""
+    @State private var startDate: Date = Date()
+    @State private var endDate: Date = Date()
+    @State private var location: String = ""
+    @State private var locationUrl: String = ""
+    @State private var recurrenceType: RecurrenceType = .none
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     init(event: Event?, validationState: EventValidationState, onSave: @escaping (Event) -> Void) {
+        print("[EventFormView] ===== FORM INITIALIZATION START =====")
+        print("[EventFormView] Received event: \(event?.id ?? "nil") with title: \(event?.title ?? "nil")")
         self.event = event
-        self.validationState = validationState
         self.onSave = onSave
         
-        _title = State(initialValue: event?.title ?? "")
-        _description = State(initialValue: event?.description ?? "")
-        _startDate = State(initialValue: event?.startDate ?? Date())
-        _endDate = State(initialValue: event?.endDate ?? Date().addingTimeInterval(3600))
-        _location = State(initialValue: event?.location ?? "")
-        _locationUrl = State(initialValue: event?.locationUrl ?? "")
-        _recurrenceType = State(initialValue: event?.recurrenceType ?? .none)
+        // Initialize state with event data if editing, otherwise use defaults
+        if let existingEvent = event {
+            print("[EventFormView] Initializing with existing event:")
+            print("  - ID: \(existingEvent.id)")
+            print("  - Title: \(existingEvent.title)")
+            print("  - Description: \(existingEvent.description)")
+            
+            _title = State(initialValue: existingEvent.title)
+            _description = State(initialValue: existingEvent.description)
+            _startDate = State(initialValue: existingEvent.startDate)
+            _endDate = State(initialValue: existingEvent.endDate ?? existingEvent.startDate.addingTimeInterval(3600))
+            _location = State(initialValue: existingEvent.location)
+            _locationUrl = State(initialValue: existingEvent.locationUrl ?? "")
+            _recurrenceType = State(initialValue: existingEvent.recurrenceType)
+            
+            print("[EventFormView] Form state initialized with existing event data")
+        } else {
+            print("[EventFormView] Initializing new event with default values")
+            let now = Date()
+            _title = State(initialValue: "")
+            _description = State(initialValue: "")
+            _startDate = State(initialValue: now)
+            _endDate = State(initialValue: now.addingTimeInterval(3600))
+            _location = State(initialValue: "")
+            _locationUrl = State(initialValue: "")
+            _recurrenceType = State(initialValue: .none)
+            
+            print("[EventFormView] Form state initialized with default values")
+        }
+        
+        print("[EventFormView] ===== FORM INITIALIZATION COMPLETE =====")
     }
     
     var body: some View {
@@ -33,7 +60,8 @@ struct EventFormView: View {
             Section(header: Text("Event Details")) {
                 TextField("Title", text: $title)
                     .textInputAutocapitalization(.words)
-                if !validationState.hasTitle {
+                    .onChange(of: title) { _ in updateValidation() }
+                if !formState.validationState.hasTitle {
                     Text("Title is required")
                         .font(.caption)
                         .foregroundColor(.red)
@@ -43,19 +71,21 @@ struct EventFormView: View {
                     .lineLimit(3...6)
                 
                 DatePicker("Start Date", selection: $startDate)
-                if !validationState.hasStartDate {
+                    .onChange(of: startDate) { _ in updateValidation() }
+                if !formState.validationState.hasStartDate {
                     Text("Start date is required")
                         .font(.caption)
                         .foregroundColor(.red)
                 }
                 
                 DatePicker("End Date", selection: $endDate)
-                if !validationState.hasEndDate {
+                    .onChange(of: endDate) { _ in updateValidation() }
+                if !formState.validationState.hasEndDate {
                     Text("End date is required")
                         .font(.caption)
                         .foregroundColor(.red)
                 }
-                if !validationState.isEndDateAfterStart {
+                if !formState.validationState.isEndDateAfterStart {
                     Text("End date must be after start date")
                         .font(.caption)
                         .foregroundColor(.red)
@@ -65,7 +95,8 @@ struct EventFormView: View {
             Section(header: Text("Location")) {
                 TextField("Location", text: $location)
                     .textInputAutocapitalization(.words)
-                if !validationState.hasLocation {
+                    .onChange(of: location) { _ in updateValidation() }
+                if !formState.validationState.hasLocation {
                     Text("Location is required")
                         .font(.caption)
                         .foregroundColor(.red)
@@ -88,15 +119,11 @@ struct EventFormView: View {
         .navigationTitle(event == nil ? "Add Event" : "Edit Event")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button("Cancel") {
-                    dismiss()
-                }
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Save") {
-                    let newEvent = Event(
-                        id: event?.id ?? "",
+                    print("[EventFormView] Save button tapped for event: \(event?.id ?? "new")")
+                    let event = Event(
+                        id: self.event?.id ?? "",
                         title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                         description: description.trimmingCharacters(in: .whitespacesAndNewlines),
                         startDate: startDate,
@@ -104,17 +131,42 @@ struct EventFormView: View {
                         location: location.trimmingCharacters(in: .whitespacesAndNewlines),
                         locationUrl: locationUrl.isEmpty ? nil : locationUrl.trimmingCharacters(in: .whitespacesAndNewlines),
                         recurrenceType: recurrenceType,
-                        parentEventId: event?.parentEventId,
-                        createdAt: event?.createdAt ?? Date(),
+                        parentEventId: self.event?.parentEventId,
+                        createdAt: self.event?.createdAt ?? Date(),
                         updatedAt: Date(),
-                        createdBy: event?.createdBy,
-                        updatedBy: nil,
-                        isPublished: event?.isPublished ?? false,
-                        isDeleted: event?.isDeleted ?? false
+                        createdBy: self.event?.createdBy,
+                        updatedBy: Auth.auth().currentUser?.uid ?? "",
+                        isPublished: self.event?.isPublished ?? false,
+                        isDeleted: self.event?.isDeleted ?? false
                     )
-                    onSave(newEvent)
+                    
+                    print("[EventFormView] Created event object, calling onSave")
+                    onSave(event)
                 }
+                .disabled(!formState.validationState.isValid)
             }
         }
+        .onAppear {
+            updateValidation()
+        }
     }
+    
+    private func updateValidation() {
+        formState.validationState = EventValidationState(
+            hasStartDate: true,
+            hasEndDate: true,
+            hasTitle: !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            hasLocation: !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            isEndDateAfterStart: endDate > startDate
+        )
+    }
+}
+
+@MainActor
+class EventFormState: ObservableObject {
+    @Published var validationState = EventValidationState()
+}
+
+#Preview {
+    EventFormView(event: nil, validationState: EventValidationState(), onSave: { _ in })
 }

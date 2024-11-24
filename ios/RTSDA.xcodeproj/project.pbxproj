@@ -36,6 +36,7 @@
 		EA3CC6462CE9369500105BBB /* RTSDATests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RTSDATests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA3CC6502CE9369500105BBB /* RTSDAUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RTSDAUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA67F5A12CF0F64300590ED2 /* RTSDA.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = RTSDA.xcodeproj; sourceTree = "<group>"; };
+		EAFA7CF42CF25A450070795F /* RTSDA.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = RTSDA.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -124,6 +125,11 @@
 			sourceTree = "<group>";
 		};
 		EA67F5A22CF0F64300590ED2 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EAFA7CF62CF25A450070795F /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -243,6 +249,10 @@
 			productRefGroup = EA3CC6372CE9369300105BBB /* Products */;
 			projectDirPath = "";
 			projectReferences = (
+				{
+					ProductGroup = EAFA7CF62CF25A450070795F /* Products */;
+					ProjectRef = EAFA7CF42CF25A450070795F /* RTSDA.xcodeproj */;
+				},
 				{
 					ProductGroup = EA67F5A22CF0F64300590ED2 /* Products */;
 					ProjectRef = EA67F5A12CF0F64300590ED2 /* RTSDA.xcodeproj */;

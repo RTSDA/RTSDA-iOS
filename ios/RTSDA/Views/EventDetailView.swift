@@ -7,6 +7,7 @@ struct EventDetailView: View {
     @State private var showError = false
     @State private var showSuccess = false
     @State private var errorMessage = ""
+    @State private var showSettings = false
     
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -59,8 +60,16 @@ struct EventDetailView: View {
                     Button(action: {
                         Task {
                             do {
-                                try await event.addToCalendar()
-                                showSuccess = true
+                                let added = try await event.addToCalendar()
+                                if added {
+                                    showSuccess = true
+                                } else {
+                                    errorMessage = "Failed to add event to calendar"
+                                    showError = true
+                                }
+                            } catch EventError.calendarAccessDenied {
+                                errorMessage = EventError.calendarAccessDenied.errorDescription ?? "Calendar access denied"
+                                showSettings = true
                             } catch {
                                 errorMessage = error.localizedDescription
                                 showError = true
@@ -88,6 +97,16 @@ struct EventDetailView: View {
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
+            }
+            .alert("Calendar Access Required", isPresented: $showSettings) {
+                Button("Open Settings", role: .none) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text(errorMessage)
             }

@@ -96,7 +96,18 @@
     <section class="page-content">
         <div class="row">
             <div class="column">
-                <div id="upcoming-stream">
+                <div class="text-center">
+                    <h2>Join us for our live services</h2>
+                    <div class="stream-schedule">
+                        <h3>Regular Service Times</h3>
+                        <ul>
+                            <li>Sabbath School: 9:15 AM EST</li>
+                            <li>Divine Service: 11:00 AM EST</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="upcoming-stream" class="text-center">
                     <!-- Upcoming stream info will be inserted here -->
                 </div>
                 
@@ -105,17 +116,16 @@
                         width="560" 
                         height="315" 
                         src="https://www.youtube.com/embed/live_stream?channel=UCH3GQ7cC1gvTSEbTSg2jW3Q" 
+                        title="Rockville-Tolland SDA Church Live Stream"
                         frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                         allowfullscreen>
                     </iframe>
                 </div>
 
-                <div class="stream-schedule">
-                    <h3>Regular Service Times</h3>
-                    <ul>
-                        <li>Sabbath School: 9:15 AM EST</li>
-                        <li>Divine Service: 11:00 AM EST</li>
-                    </ul>
+                <div class="text-center stream-notice">
+                    <p>Can't make it to church? Join us online for our live services every Sabbath.</p>
+                    <p>Subscribe to our <a href="https://www.youtube.com/@rockville-tollandsdachurch" target="_blank">YouTube channel</a> to get notifications when we go live!</p>
                 </div>
             </div>
         </div>
@@ -205,7 +215,7 @@
 
         <div class="row footer-bottom">
             <div class="column ss-copyright">
-                <span>© Copyright Rockville-Tolland SDA Church 2024</span>
+                <span> Rockville-Tolland SDA Church 2024</span>
                 <span>Design by <a href="https://www.styleshout.com/">StyleShout</a></span>
 
             </div>
@@ -227,66 +237,49 @@
     <script src="js/main.js"></script>
 
     <script type="module">
-        import { getUpcomingLivestream } from './js/youtube-service.js';
-
+        import YouTubeService from './js/youtube-service.js';
+        
         async function updateUpcomingStream() {
+            const youtubeService = YouTubeService.getInstance();
             const upcomingContainer = document.getElementById('upcoming-stream');
-            
             try {
-                const livestream = await getUpcomingLivestream();
-                
-                if (livestream.found) {
-                    const startTime = livestream.scheduledStartTime;
-                    const formattedDate = startTime.toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    });
-                    const formattedTime = startTime.toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        timeZoneName: 'short'
-                    });
-
+                const upcomingStream = await youtubeService.getUpcomingLivestream();
+                if (upcomingStream) {
+                    const startTime = new Date(upcomingStream.scheduledStartTime);
                     upcomingContainer.innerHTML = `
                         <div class="upcoming-stream-info">
-                            <h2>Next Live Stream</h2>
-                            <h3>${livestream.title}</h3>
-                            <p class="stream-time">
-                                Starting ${formattedDate} at ${formattedTime}
-                            </p>
-                            <p class="stream-description">
-                                ${livestream.description}
-                            </p>
-                            <a href="https://www.youtube.com/watch?v=${livestream.videoId}" 
-                               class="btn btn--primary" 
-                               target="_blank">
-                                Set Reminder on YouTube
-                            </a>
+                            <h3>Next Live Service</h3>
+                            <p>${upcomingStream.title}</p>
+                            <p>Starting ${startTime.toLocaleString()}</p>
+                            <a href="https://www.youtube.com/watch?v=${upcomingStream.videoId}" 
+                               target="_blank" 
+                               class="btn btn--primary">Set Reminder</a>
                         </div>
                     `;
                 } else {
                     upcomingContainer.innerHTML = `
                         <div class="upcoming-stream-info">
-                            <h2>Live Streams</h2>
-                            <p>No upcoming live streams are currently scheduled.</p>
-                            <p>Please check back later or subscribe to our YouTube channel for notifications.</p>
+                            <p>No upcoming live streams scheduled at this time.</p>
+                            <p>Please check back later or subscribe to our YouTube channel for updates.</p>
                         </div>
                     `;
                 }
             } catch (error) {
-                console.error('Error updating upcoming stream:', error);
+                console.error('Error fetching upcoming stream:', error);
                 upcomingContainer.innerHTML = `
                     <div class="upcoming-stream-info">
-                        <h2>Live Streams</h2>
-                        <p>Error loading upcoming stream information. Please try again later.</p>
+                        <p>Unable to load upcoming stream information.</p>
+                        <p>Please check our <a href="https://www.youtube.com/@rockville-tollandsdachurch" target="_blank">YouTube channel</a> for updates.</p>
                     </div>
                 `;
             }
         }
 
+        // Update upcoming stream info when page loads
         updateUpcomingStream();
+
+        // Refresh upcoming stream info every 5 minutes
+        setInterval(updateUpcomingStream, 5 * 60 * 1000);
     </script>
 
 </body>

@@ -3,147 +3,145 @@
  *
  * ------------------------------------------------------------------- */
 
-(function($) {
+const cfg = {
+    scrollDuration : 800, // smoothscroll duration
+    mailChimpURL   : ''   // mailchimp url
+};
 
-    "use strict";
+// Add the User Agent to the <html>
+// will be used for IE10/IE11 detection (Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0; rv:11.0))
+const doc = document.documentElement;
+doc.setAttribute('data-useragent', navigator.userAgent);
 
-    const cfg = {
-                scrollDuration : 800, // smoothscroll duration
-                mailChimpURL   : ''   // mailchimp url
-                };
-    const $WIN = $(window);
+/* Preloader
+ * -------------------------------------------------- */
+const ssPreloader = function() {
+    const preloader = document.querySelector('#preloader');
+    if (!preloader) return;
 
-    // Add the User Agent to the <html>
-    // will be used for IE10/IE11 detection (Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0; rv:11.0))
-    const doc = document.documentElement;
-    doc.setAttribute('data-useragent', navigator.userAgent);
+    // Remove preloader once everything is loaded
+    function removePreloader() {
+        document.body.classList.remove('ss-preload');
+        document.body.classList.add('ss-loaded');
+    }
 
+    // If not first visit, remove preloader immediately
+    if (sessionStorage.getItem('hasVisited')) {
+        removePreloader();
+        return;
+    }
 
-   /* Preloader
-    * -------------------------------------------------- */
-    const ssPreloader = function() {
+    // Remove preloader after a longer timeout for splash screen
+    setTimeout(removePreloader, 3000);
 
-        $("html").addClass('ss-preload');
+    // Also remove preloader on normal load event, but with a delay
+    window.addEventListener('load', function() {
+        if (!sessionStorage.getItem('hasVisited')) {
+            setTimeout(removePreloader, 3000);
+        }
+    });
 
-        $WIN.on('load', function() {
+    // force page scroll position to top at page refresh
+    window.addEventListener('beforeunload', function () {
+        window.scrollTo(0, 0);
+    });
+};
 
-            // force page scroll position to top at page refresh
-            // $('html, body').animate({ scrollTop: 0 }, 'normal');
+/* Mobile Menu
+ * ---------------------------------------------------- */ 
+const ssMobileMenu = function() {
+    const toggleButton = document.querySelector('.header-menu-toggle');
+    const headerNavWrap = document.querySelector('.header-nav-wrap');
+    const siteBody = document.querySelector("body");
 
-            // will first fade out the loading animation
-            $("#loader").fadeOut("slow", function() {
-                // will fade out the whole DIV that covers the website.
-                $("#preloader").delay(300).fadeOut("slow");
-            });
+    if (!(toggleButton && headerNavWrap)) return;
 
-            // for hero content animations
-            $("html").removeClass('ss-preload');
-            $("html").addClass('ss-loaded');
+    toggleButton.addEventListener('click', function(event) {
+        event.preventDefault();
+        toggleButton.classList.toggle('is-clicked');
+        siteBody.classList.toggle('menu-is-open');
+    });
 
-        });
-    };
-
-
-   /* Mobile Menu
-    * ---------------------------------------------------- */
-    const ssMobileMenu = function() {
-
-        const toggleButton = $('.header-menu-toggle');
-        const nav = $('.header-nav-wrap');
-
-        toggleButton.on('click', function(event){
-            event.preventDefault();
-
-            toggleButton.toggleClass('is-clicked');
-            nav.slideToggle();
-        });
-
-        if (toggleButton.is(':visible')) nav.addClass('mobile');
-
-        $WIN.on('resize', function() {
-            if (toggleButton.is(':visible')) nav.addClass('mobile');
-            else nav.removeClass('mobile');
-        });
-
-        nav.find('a').on("click", function() {
-
-            if (nav.hasClass('mobile')) {
-                toggleButton.toggleClass('is-clicked');
-                nav.slideToggle();
+    headerNavWrap.querySelectorAll('.header-nav a').forEach(function(link) {
+        link.addEventListener('click', function(evt) {
+            // at 800px and below
+            if (window.matchMedia('(max-width: 800px)').matches) {
+                toggleButton.classList.toggle('is-clicked');
+                siteBody.classList.toggle('menu-is-open');
             }
         });
+    });
 
-    };
+    window.addEventListener('resize', function() {
+        // above 800px
+        if (window.matchMedia('(min-width: 801px)').matches) {
+            if (siteBody.classList.contains('menu-is-open')) siteBody.classList.remove('menu-is-open');
+            if (toggleButton.classList.contains("is-clicked")) toggleButton.classList.remove("is-clicked");
+        }
+    });
+};
 
+/* Alert Boxes
+ * ------------------------------------------------------ */
+const ssAlertBoxes = function() {
 
-   /* Alert Boxes
-    * ------------------------------------------------------ */
-    const ssAlertBoxes = function() {
-
-        $('.alert-box').on('click', '.alert-box__close', function() {
-            $(this).parent().fadeOut(500);
+    document.querySelectorAll('.alert-box').forEach(function(alertBox) {
+        alertBox.querySelector('.alert-box__close').addEventListener('click', function() {
+            alertBox.style.display = 'none';
         });
+    });
 
-    };
+};
 
-
-   /* Smooth Scrolling
-    * ------------------------------------------------------ */
-    const ssSmoothScroll = function() {
-
-        $('.smoothscroll').on('click', function (e) {
-            const target = this.hash;
-            const $target = $(target);
-
+/* Smooth Scrolling
+ * ------------------------------------------------------ */
+const ssSmoothScroll = function() {
+    
+    document.querySelectorAll('.smoothscroll').forEach(function(anchor) {
+        anchor.addEventListener('click', function (e) {
             e.preventDefault();
-            e.stopPropagation();
+            
+            const target = document.querySelector(this.getAttribute('href'));
+            if (!target) return;
 
-            $('html, body').stop().animate({
-                'scrollTop': $target.offset().top
-            }, cfg.scrollDuration, 'swing').promise().done(function () {
+            const offset = Math.floor(target.offsetTop);
 
-                // check if menu is open
-                if ($('body').hasClass('menu-is-open')) {
-                    $('.header-menu-toggle').trigger('click');
-                }
-
-                window.location.hash = target;
+            window.scrollTo({
+                top: offset,
+                left: 0,
+                behavior: 'smooth'
             });
         });
+    });
+};
 
-    };
+/* Back to Top
+ * ------------------------------------------------------ */
+const ssBackToTop = function() {
 
+    const pxShow      = 500;
+    const $goTopButton = document.querySelector(".ss-go-top")
 
-   /* Back to Top
-    * ------------------------------------------------------ */
-    const ssBackToTop = function() {
+    // Show or hide the button
+    if (window.scrollY >= pxShow) $goTopButton.classList.add('link-is-visible');
 
-        const pxShow      = 500;
-        const $goTopButton = $(".ss-go-top")
+    window.addEventListener('scroll', function() {
+        if (window.scrollY >= pxShow) {
+            if(!$goTopButton.classList.contains('link-is-visible')) $goTopButton.classList.add('link-is-visible')
+        } else {
+            $goTopButton.classList.remove('link-is-visible')
+        }
+    });
+};
 
-        // Show or hide the button
-        if ($(window).scrollTop() >= pxShow) $goTopButton.addClass('link-is-visible');
+/* Initialize
+ * ------------------------------------------------------ */
+(function ssInit() {
 
-        $(window).on('scroll', function() {
-            if ($(window).scrollTop() >= pxShow) {
-                if(!$goTopButton.hasClass('link-is-visible')) $goTopButton.addClass('link-is-visible')
-            } else {
-                $goTopButton.removeClass('link-is-visible')
-            }
-        });
-    };
+    ssPreloader();
+    ssMobileMenu();
+    ssAlertBoxes();
+    ssSmoothScroll();
+    ssBackToTop();
 
-
-   /* Initialize
-    * ------------------------------------------------------ */
-    (function ssInit() {
-
-        ssPreloader();
-        ssMobileMenu();
-        ssAlertBoxes();
-        ssSmoothScroll();
-        ssBackToTop();
-
-    })();
-
-})(jQuery);
+})();

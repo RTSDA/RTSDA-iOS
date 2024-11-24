@@ -136,6 +136,7 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-config-ktx")
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.5")

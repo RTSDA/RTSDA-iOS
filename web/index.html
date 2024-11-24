@@ -29,13 +29,10 @@
     <link rel="icon" type="image/png" sizes="16x16" href="sdalogo.webp">
     <link rel="manifest" href="site.webmanifest">
     
-    <!-- Firebase SDK -->
-    <script type="module" src="js/firebase-config.js?v=1"></script>
-    <script type="module" src="js/index-events.js?v=1"></script>
-
+   
 </head>
 
-<body id="top">
+<body id="top" class="ss-preload">
 
     <!-- preloader
     ================================================== -->
@@ -89,8 +86,9 @@
 
             <div class="column large-full hero-content__text">
                 <h1>
-                    You May Not See a Way But God Will Make A Way
+                    <span id="bible-verse"></span>
                 </h1>
+                <p class="h5" id="bible-reference" style="color: white; margin-top: 1rem;"></p>
 
                 <div class="hero-content__buttons">
                     <a href="events.html" class="btn btn--stroke">Upcoming Events</a>
@@ -197,31 +195,24 @@
         <div class="row row-y-center series-content">
             <div class="column large-half medium-full">
                 <h3 class="subhead">Latest Sermon</h3>
-                <h2 id="sermon-title">Loading...</h2>
-                <p id="sermon-date">
-                    Loading...
-                </p>
+                <div id="sermon-content">
+                    <h2 id="sermon-title"></h2>
+                    <p id="sermon-description"></p>
+                </div>
             </div>
-
             <div class="column large-half medium-full">
-                <div class="series-content__buttons">
-                    <div id="youtube-embed">
-                        <!-- Video will be inserted here -->
-                    </div>
+                <div class="video-container">
+                    <iframe id="sermon-video" 
+                            width="560" 
+                            height="315" 
+                            src="" 
+                            title="Latest Sermon" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                    </iframe>
                 </div>
-
-                <div class="series-content__subscribe">
-                    <p>
-                        Never miss a message. Subscribe to our YouTube and Podcast channels.
-                    </p>
-
-                    <ul class="series-content__subscribe-links">
-                        <li class="ss-apple-podcast"><a href="https://podcasts.apple.com/us/podcast/rockville-tolland-sda-church/id1630777684">Apple Podcast</a></li>
-                        <li class="ss-spotify"><a href="https://podcasters.spotify.com/pod/show/rockvilletollandsdachurch">Spotify</a></li>
-                        <li class="ss-soundcloud"><a href="https://castbox.fm/channel/id4983836?country=us">castbox</a></li>
-                        <li class="ss-youtube"><a href="https://www.youtube.com/@rockvilletollandsdachurch">Youtube</a></li>
-                    </ul>
-                </div>
+                <p id="video-loading-message" class="loading-message" style="display: none;"></p>
             </div>
         </div>
     </section>
@@ -230,7 +221,6 @@
     <!-- Social
     ================================================== -->
     <section class="s-social">
-
         <div class="row social-content">
             <div class="column">
                 <ul class="social-list">
@@ -246,7 +236,6 @@
                             <span class="social-list__text">Twitter</span>
                         </a>
                     </li>
-
                     </li>
                     <li class="social-list__item">
                         <a href="mailto:info@rockvilletollandsda.org" title="">
@@ -257,7 +246,6 @@
                 </ul>
             </div>
         </div> <!-- end social-content -->
-
     </section> <!-- end s-social -->
 
 
@@ -327,42 +315,109 @@
 
     <!-- Java Script
     ================================================== -->
-    <script src="js/jquery-3.2.1.min.js?v=1"></script>
-    <script src="js/plugins.js?v=1"></script>
-    <script src="js/main.js?v=1"></script>
+    <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="js/plugins.js"></script>
+    <script src="js/main.js"></script>
+    <script type="module" src="js/bible-verses.js"></script>
+    <script src="js/splash-screen.js"></script>
 
+    <!-- Firebase Scripts -->
     <script type="module">
-        import { getLatestSermon } from './js/youtube-service.js?v=1';
-
-        async function updateLatestSermon() {
+        import { initializeFirebase } from './js/firebase-config.js?v=5';
+        import YouTubeService from './js/youtube-service.js?v=5';
+        
+        async function initializeApp() {
             try {
-                const sermon = await getLatestSermon();
+                setLoadingState(true, 'Initializing app...');
                 
-                // Update sermon title only
-                document.getElementById('sermon-title').textContent = sermon.title;
-                document.getElementById('sermon-date').textContent = 'Listen Today!';
+                // Initialize Firebase first
+                await initializeFirebase();
                 
-                // Update video embed
-                document.getElementById('youtube-embed').innerHTML = `
-                    <iframe 
-                        width="560" 
-                        height="315" 
-                        src="https://www.youtube.com/embed/${sermon.videoId}" 
-                        title="YouTube video player" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                        referrerpolicy="strict-origin-when-cross-origin" 
-                        allowfullscreen>
-                    </iframe>
-                `;
+                // Then initialize YouTube service and update latest sermon
+                const youtubeService = new YouTubeService();
+                await updateLatestSermon(youtubeService);
+                
+                setLoadingState(false);
+            } catch (error) {
+                console.error('Error initializing app:', error);
+                setErrorState(error.message);
+            }
+        }
+        
+        function setLoadingState(isLoading, message = 'Loading...') {
+            const sermonTitle = document.getElementById('sermon-title');
+            const sermonDescription = document.getElementById('sermon-description');
+            const loadingMessage = document.getElementById('video-loading-message');
+            const sermonContent = document.getElementById('sermon-content');
+            
+            if (isLoading) {
+                if (sermonTitle) sermonTitle.textContent = 'Loading...';
+                if (sermonDescription) sermonDescription.textContent = message;
+                if (loadingMessage) {
+                    loadingMessage.textContent = message;
+                    loadingMessage.style.display = 'block';
+                }
+                if (sermonContent) sermonContent.dataset.state = 'loading';
+            } else {
+                if (loadingMessage) loadingMessage.style.display = 'none';
+                if (sermonContent) sermonContent.dataset.state = 'ready';
+            }
+        }
+        
+        function setErrorState(message) {
+            const sermonTitle = document.getElementById('sermon-title');
+            const sermonDescription = document.getElementById('sermon-description');
+            const loadingMessage = document.getElementById('video-loading-message');
+            const sermonContent = document.getElementById('sermon-content');
+            
+            if (sermonTitle) sermonTitle.textContent = 'Error';
+            if (sermonDescription) sermonDescription.textContent = message || 'Failed to load sermon';
+            if (loadingMessage) loadingMessage.style.display = 'none';
+            if (sermonContent) sermonContent.dataset.state = 'error';
+        }
+        
+        function updateSermonContent(sermon) {
+            const sermonTitle = document.getElementById('sermon-title');
+            const sermonDescription = document.getElementById('sermon-description');
+            const sermonVideo = document.getElementById('sermon-video');
+            const sermonContent = document.getElementById('sermon-content');
+            
+            if (sermonTitle) sermonTitle.textContent = sermon.title || 'Latest Sermon';
+            if (sermonDescription) sermonDescription.textContent = sermon.description || 'No description available';
+            if (sermonVideo && sermon.videoId) {
+                sermonVideo.src = `https://www.youtube.com/embed/${sermon.videoId}`;
+            }
+            if (sermonContent) sermonContent.dataset.state = 'ready';
+        }
+
+        async function updateLatestSermon(youtubeService) {
+            try {
+                setLoadingState(true, 'Fetching latest sermon...');
+                const sermon = await youtubeService.getLatestSermon();
+                
+                if (sermon) {
+                    updateSermonContent(sermon);
+                    setLoadingState(false);
+                } else {
+                    setErrorState('No sermon available');
+                }
             } catch (error) {
                 console.error('Error updating sermon:', error);
-                document.getElementById('sermon-title').textContent = 'Error loading sermon';
-                document.getElementById('sermon-date').textContent = 'Please try again later';
+                setErrorState(error.message);
             }
         }
 
-        updateLatestSermon();
+        // Initialize the app when the DOM is ready
+        document.addEventListener('DOMContentLoaded', initializeApp);
     </script>
+
+    <!-- events script -->
+    <script type="module" src="js/index-events.js"></script>
+
+    <!-- Java Script
+    ================================================== -->
+    <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="js/plugins.js"></script>
+    <script src="js/main.js"></script>
 
 </body>

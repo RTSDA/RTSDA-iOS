@@ -1,10 +1,13 @@
 package com.rtsda.appr.data.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.PropertyName
+import com.google.firebase.firestore.Exclude
 import java.util.UUID
 
 data class PrayerRequest(
+    @DocumentId
     @get:PropertyName("id")
     val id: String = UUID.randomUUID().toString(),
     
@@ -31,72 +34,43 @@ data class PrayerRequest(
     
     @get:PropertyName("requestType")
     val requestType: RequestType = RequestType.PERSONAL
-)
-
-enum class RequestStatus {
-    @PropertyName("new")
-    NEW,
-    @PropertyName("approved")
-    APPROVED,
-    @PropertyName("rejected")
-    REJECTED;
-
-    override fun toString(): String {
-        return when (this) {
-            NEW -> "new"
-            APPROVED -> "approved"
-            REJECTED -> "rejected"
-        }
+) {
+    @Exclude
+    fun toMap(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "name" to name,
+            "email" to email,
+            "phone" to phone,
+            "request" to request,
+            "timestamp" to timestamp,
+            "status" to status.toString(),
+            "isPrivate" to isPrivate,
+            "requestType" to requestType.toString()
+        )
     }
 
     companion object {
-        fun fromString(value: String): RequestStatus {
-            return when (value.lowercase()) {
-                "new" -> NEW
-                "approved" -> APPROVED
-                "rejected" -> REJECTED
-                else -> NEW
-            }
-        }
-    }
-}
-
-enum class RequestType {
-    @PropertyName("Personal")
-    PERSONAL,
-    @PropertyName("Family")
-    FAMILY,
-    @PropertyName("Health")
-    HEALTH,
-    @PropertyName("Financial")
-    FINANCIAL,
-    @PropertyName("Spiritual")
-    SPIRITUAL,
-    @PropertyName("Other")
-    OTHER;
-
-    override fun toString(): String {
-        return when (this) {
-            PERSONAL -> "Personal"
-            FAMILY -> "Family"
-            HEALTH -> "Health"
-            FINANCIAL -> "Financial"
-            SPIRITUAL -> "Spiritual"
-            OTHER -> "Other"
-        }
-    }
-
-    companion object {
-        fun fromString(value: String): RequestType {
-            return when (value) {
-                "Personal" -> PERSONAL
-                "Family" -> FAMILY
-                "Health" -> HEALTH
-                "Financial" -> FINANCIAL
-                "Spiritual" -> SPIRITUAL
-                "Other" -> OTHER
-                else -> PERSONAL
-            }
+        fun fromMap(map: Map<String, Any?>): PrayerRequest {
+            return PrayerRequest(
+                id = map["id"] as? String ?: UUID.randomUUID().toString(),
+                name = map["name"] as? String ?: "",
+                email = map["email"] as? String ?: "",
+                phone = map["phone"] as? String ?: "",
+                request = map["request"] as? String ?: "",
+                timestamp = (map["timestamp"] as? Timestamp) ?: Timestamp.now(),
+                status = try {
+                    RequestStatus.fromString(map["status"] as? String ?: "")
+                } catch (e: Exception) {
+                    RequestStatus.NEW
+                },
+                isPrivate = map["isPrivate"] as? Boolean ?: false,
+                requestType = try {
+                    RequestType.fromString(map["requestType"] as? String ?: "")
+                } catch (e: Exception) {
+                    RequestType.PERSONAL
+                }
+            )
         }
     }
 }

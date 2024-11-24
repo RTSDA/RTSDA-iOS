@@ -1,9 +1,11 @@
 package com.rtsda.appr.ui.screens.admin
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +14,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.rtsda.appr.ui.viewmodels.AdminViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -19,14 +22,17 @@ fun AdminLoginScreen(
     onNavigateToEvents: () -> Unit,
     onNavigateToPrayerRequests: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
     viewModel: AdminViewModel = hiltViewModel()
 ) {
     if (viewModel.isAdmin) {
         AdminDashboardContent(
             onNavigateToEvents = onNavigateToEvents,
             onNavigateToPrayerRequests = onNavigateToPrayerRequests,
-            onSignOut = { viewModel.signOut() }
+            onSignOut = { 
+                viewModel.signOut()
+                onDismiss()
+            },
+            onBack = onDismiss
         )
     } else {
         LoginContent(
@@ -45,13 +51,13 @@ private fun LoginContent(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
-    
+
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("Admin Login") },
             navigationIcon = {
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             }
         )
@@ -99,11 +105,9 @@ private fun LoginContent(
             }
             
             Button(
-                onClick = {
-                    viewModel.signIn(email, password)
-                },
+                onClick = { viewModel.login(email, password) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !viewModel.isLoading && email.isNotEmpty() && password.isNotEmpty()
+                enabled = !viewModel.isLoading && email.isNotBlank() && password.isNotBlank()
             ) {
                 if (viewModel.isLoading) {
                     CircularProgressIndicator(
@@ -111,7 +115,7 @@ private fun LoginContent(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("Sign In")
+                    Text("Login")
                 }
             }
         }
@@ -123,14 +127,20 @@ private fun LoginContent(
 private fun AdminDashboardContent(
     onNavigateToEvents: () -> Unit,
     onNavigateToPrayerRequests: () -> Unit,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    onBack: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("Admin Dashboard") },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+            },
             actions = {
                 IconButton(onClick = onSignOut) {
-                    Icon(Icons.Default.Logout, contentDescription = "Sign Out")
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sign Out")
                 }
             }
         )
@@ -139,66 +149,25 @@ private fun AdminDashboardContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onNavigateToEvents)
+            Button(
+                onClick = onNavigateToEvents,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Event,
-                        contentDescription = "Events",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Events",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Navigate",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Icon(Icons.Default.CalendarToday, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Manage Events")
             }
             
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onNavigateToPrayerRequests)
+            Button(
+                onClick = onNavigateToPrayerRequests,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Favorite,
-                        contentDescription = "Prayer Requests",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Prayer Requests",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Navigate",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Prayer Requests")
             }
         }
     }

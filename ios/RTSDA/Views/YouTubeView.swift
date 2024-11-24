@@ -1,14 +1,15 @@
 import SwiftUI
 import AVKit
 import MediaPlayer
+import WebKit
 
 // Cache class for video information
 final class VideoCache: NSObject, Codable {
     let videoURL: String
     let timestamp: Date
     
-    // Cache validity duration (24 hours)
-    static let validityDuration: TimeInterval = 24 * 60 * 60
+    // Increase cache validity to 7 days to reduce API calls
+    static let validityDuration: TimeInterval = 7 * 24 * 60 * 60
     
     init(videoURL: String, timestamp: Date = Date()) {
         self.videoURL = videoURL
@@ -123,6 +124,9 @@ class VideoPlayerState: ObservableObject {
         setupAudioSession()
         setupNotifications()
         setupRemoteCommandCenter()
+        
+        // Clear expired cache entries on init
+        VideoCacheManager.shared.clearExpiredCache()
     }
     
     private func setupAudioSession() {
@@ -345,7 +349,6 @@ struct YouTubeView: View {
     let videoId: String
     @StateObject private var playerState = VideoPlayerState.shared
     @State private var isLoading = true
-    @State private var playerLayer: AVPlayerLayer?
     
     var body: some View {
         ZStack {
@@ -353,59 +356,30 @@ struct YouTubeView: View {
                 VideoLoadingView()
             }
             
-            VideoPlayer(player: playerState.player)
+            YouTubeWebView(url: URL(string: "https://www.youtube.com/embed/\(videoId)?playsinline=1&autoplay=1")!)
                 .onAppear {
-                    loadVideo()
+                    isLoading = false
                 }
-                .onDisappear {
-                    playerState.player?.pause()
-                }
-                .overlay(
-                    Group {
-                        if let error = playerState.error {
-                            Text("Error: \(error.localizedDescription)")
-                                .foregroundColor(.red)
-                                .padding()
-                        }
-                    }
-                )
-                .allowsHitTesting(true)
                 .aspectRatio(16/9, contentMode: .fit)
-                .background(PlayerLayerView(player: playerState.player, onLayerCreated: { layer in
-                    playerLayer = layer
-                    setupPiP()
-                }))
         }
     }
+}
+
+struct YouTubeWebView: UIViewRepresentable {
+    let url: URL
     
-    private func setupPiP() {
-        guard let playerLayer = playerLayer,
-              AVPictureInPictureController.isPictureInPictureSupported() else {
-            return
-        }
+    func makeUIView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
         
-        let pipController = AVPictureInPictureController(playerLayer: playerLayer)
-        pipController?.canStartPictureInPictureAutomaticallyFromInline = true
-        playerState.pipController = pipController
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.scrollView.isScrollEnabled = false
+        webView.load(URLRequest(url: url))
+        return webView
     }
     
-    private func loadVideo() {
-        isLoading = true
-        Task {
-            do {
-                let videoURL = try await YouTubeService.shared.extractVideoURL(from: videoId)
-                await MainActor.run {
-                    playerState.setPlayer(with: videoURL)
-                    isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    playerState.error = error
-                    isLoading = false
-                }
-            }
-        }
-    }
+    func updateUIView(_ webView: WKWebView, context: Context) {}
 }
 
 struct PlayerLayerView: UIViewRepresentable {
