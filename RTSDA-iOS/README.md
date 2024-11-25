@@ -19,9 +19,6 @@ You can find these values in your Firebase Console under Project Settings.
 1. Open `RTSDA.xcodeproj` in Xcode
 2. Build and run the project
 
-## Admin Test
-Testing admin push permissions.
-
 ## Security Notes
 - Keep your API keys and sensitive configuration data secure
 - Use the template file for reference and local development setup
