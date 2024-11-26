@@ -2,7 +2,13 @@ import Foundation
 
 class YouTubeService {
     static let shared = YouTubeService()
-    private let decoder = JSONDecoder()
+    private let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        decoder.dateDecodingStrategy = .formatted(dateFormatter)
+        return decoder
+    }()
     private let cache = CacheService.shared
     private let remoteConfig = RemoteConfigManager.shared
     
@@ -100,29 +106,45 @@ class YouTubeService {
         
         print("🌐 Making API request to: \(components.url!)")
         
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let searchResponse = try decoder.decode(SearchResponse.self, from: data)
-        
-        // Find the first video that's not a live/upcoming stream and not a short
-        guard let videoId = searchResponse.items.first(where: { item in
-            // Only want regular videos, not live or upcoming streams
-            // Also exclude videos with "Worship Service" in the title
-            return item.snippet.liveBroadcastContent == "none" &&
-                   !item.snippet.title.contains("Worship Service")
-        })?.id.videoId else {
-            print("❌ No regular videos found in search response")
-            throw YouTubeError.noVideosFound
+        do {
+            let (data, response) = try await URLSession.shared.data(from: components.url!)
+            
+            // Log the response status
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 API Response Status: \(httpResponse.statusCode)")
+            }
+            
+            // Log the response data
+            if let responseStr = String(data: data, encoding: .utf8) {
+                print("📦 API Response: \(responseStr)")
+            }
+            
+            let searchResponse = try decoder.decode(SearchResponse.self, from: data)
+            
+            // Find the first video that's not a live/upcoming stream and not a short
+            guard let videoId = searchResponse.items.first(where: { item in
+                // Only want regular videos, not live or upcoming streams
+                // Also exclude videos with "Worship Service" in the title
+                return item.snippet.liveBroadcastContent == "none" &&
+                       !item.snippet.title.contains("Worship Service")
+            })?.id.videoId else {
+                print("❌ No regular videos found in search response")
+                throw YouTubeError.noVideosFound
+            }
+            
+            print("🎥 Found video ID: \(videoId), fetching details...")
+            
+            let video = try await fetchVideoDetails(videoId)
+            
+            // Cache the result
+            try await cache.cache(video, forKey: CacheKey.sermon)
+            print("✅ Successfully cached sermon: \(video.title)")
+            
+            return video
+        } catch {
+            print("❌ Error fetching latest sermon: \(error.localizedDescription)")
+            throw YouTubeError.networkError(error)
         }
-        
-        print("🎥 Found video ID: \(videoId), fetching details...")
-        
-        let video = try await fetchVideoDetails(videoId)
-        
-        // Cache the result
-        try await cache.cache(video, forKey: CacheKey.sermon)
-        print("✅ Successfully cached sermon: \(video.title)")
-        
-        return video
     }
     
     func fetchUpcomingLivestream() async throws -> YouTubeVideo? {
@@ -154,23 +176,39 @@ class YouTubeService {
         
         print("🌐 Making API request to: \(components.url!)")
         
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let searchResponse = try decoder.decode(SearchResponse.self, from: data)
-        
-        guard let videoId = searchResponse.items.first?.id.videoId else {
-            print("ℹ️ No upcoming livestreams found")
-            return nil
+        do {
+            let (data, response) = try await URLSession.shared.data(from: components.url!)
+            
+            // Log the response status
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 API Response Status: \(httpResponse.statusCode)")
+            }
+            
+            // Log the response data
+            if let responseStr = String(data: data, encoding: .utf8) {
+                print("📦 API Response: \(responseStr)")
+            }
+            
+            let searchResponse = try decoder.decode(SearchResponse.self, from: data)
+            
+            guard let videoId = searchResponse.items.first?.id.videoId else {
+                print("ℹ️ No upcoming livestreams found")
+                return nil
+            }
+            
+            print("🎥 Found livestream ID: \(videoId), fetching details...")
+            
+            let video = try await fetchVideoDetails(videoId, isLiveContent: true)
+            
+            // Cache the result
+            try await cache.cache(video, forKey: CacheKey.livestream)
+            print("✅ Successfully cached livestream: \(video.title)")
+            
+            return video
+        } catch {
+            print("❌ Error fetching upcoming livestream: \(error.localizedDescription)")
+            throw YouTubeError.networkError(error)
         }
-        
-        print("🎥 Found livestream ID: \(videoId), fetching details...")
-        
-        let video = try await fetchVideoDetails(videoId, isLiveContent: true)
-        
-        // Cache the result
-        try await cache.cache(video, forKey: CacheKey.livestream)
-        print("✅ Successfully cached livestream: \(video.title)")
-        
-        return video
     }
     
     private func fetchVideoDetails(_ videoId: String, isLiveContent: Bool = false) async throws -> YouTubeVideo {
@@ -192,45 +230,61 @@ class YouTubeService {
         
         print("🌐 Making API request to: \(components.url!)")
         
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let videoResponse = try decoder.decode(VideoResponse.self, from: data)
-        
-        guard let videoItem = videoResponse.items.first else {
-            print("❌ No video details found for ID: \(videoId)")
-            throw YouTubeError.invalidResponse
-        }
-        
-        print("📏 Raw duration value: \(videoItem.contentDetails.duration)")
-        print("🎥 Video broadcast status: \(videoItem.snippet.liveBroadcastContent)")
-        
-        // Get the duration, allowing P0D for upcoming livestreams
-        let duration = getDurationInSeconds(from: videoItem.contentDetails.duration)
-        
-        // For non-live content, ensure it's not a live/upcoming stream and not too short
-        if !isLiveContent {
-            if videoItem.snippet.liveBroadcastContent != "none" {
-                print("❌ Video is a live/upcoming stream: \(videoItem.snippet.liveBroadcastContent)")
+        do {
+            let (data, response) = try await URLSession.shared.data(from: components.url!)
+            
+            // Log the response status
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 API Response Status: \(httpResponse.statusCode)")
+            }
+            
+            // Log the response data
+            if let responseStr = String(data: data, encoding: .utf8) {
+                print("📦 API Response: \(responseStr)")
+            }
+            
+            let videoResponse = try decoder.decode(VideoResponse.self, from: data)
+            
+            guard let videoItem = videoResponse.items.first else {
+                print("❌ No video details found for ID: \(videoId)")
                 throw YouTubeError.invalidResponse
             }
             
-            if duration < 60 {
-                print("❌ Video is too short (likely a Short): \(duration) seconds")
-                throw YouTubeError.invalidResponse
+            print("📏 Raw duration value: \(videoItem.contentDetails.duration)")
+            print("🎥 Video broadcast status: \(videoItem.snippet.liveBroadcastContent)")
+            
+            // Get the duration, allowing P0D for upcoming livestreams
+            let duration = getDurationInSeconds(from: videoItem.contentDetails.duration)
+            
+            // For non-live content, ensure it's not a live/upcoming stream and not too short
+            if !isLiveContent {
+                if videoItem.snippet.liveBroadcastContent != "none" {
+                    print("❌ Video is a live/upcoming stream: \(videoItem.snippet.liveBroadcastContent)")
+                    throw YouTubeError.invalidResponse
+                }
+                
+                if duration < 60 {
+                    print("❌ Video is too short (likely a Short): \(duration) seconds")
+                    throw YouTubeError.invalidResponse
+                }
             }
+            
+            let video = YouTubeVideo(
+                title: videoItem.snippet.title,
+                description: videoItem.snippet.description,
+                videoId: videoItem.id,
+                thumbnailUrl: videoItem.snippet.thumbnails.high?.url,
+                publishedAt: videoItem.snippet.publishedAt,
+                duration: duration,
+                liveBroadcastStatus: videoItem.snippet.liveBroadcastContent,
+                isLiveContent: isLiveContent
+            )
+            
+            return video
+        } catch {
+            print("❌ Error fetching video details: \(error.localizedDescription)")
+            throw YouTubeError.networkError(error)
         }
-        
-        let video = YouTubeVideo(
-            title: videoItem.snippet.title,
-            description: videoItem.snippet.description,
-            videoId: videoItem.id,
-            thumbnailUrl: videoItem.snippet.thumbnails.high?.url,
-            publishedAt: videoItem.snippet.publishedAt,
-            duration: duration,
-            liveBroadcastStatus: videoItem.snippet.liveBroadcastContent,
-            isLiveContent: isLiveContent
-        )
-        
-        return video
     }
     
     private func getDurationInSeconds(from duration: String) -> TimeInterval {
@@ -274,9 +328,15 @@ private struct SearchResponse: Codable {
     struct SearchItem: Codable {
         let id: VideoId
         let snippet: Snippet
+        
+        enum CodingKeys: String, CodingKey {
+            case id
+            case snippet
+        }
     }
     
     struct VideoId: Codable {
+        let kind: String
         let videoId: String
     }
 }
@@ -288,7 +348,7 @@ private struct VideoResponse: Codable {
         let id: String
         let snippet: Snippet
         let contentDetails: ContentDetails
-        let status: Status
+        let status: Status?
     }
 }
 
@@ -300,10 +360,14 @@ private struct Snippet: Codable {
     let liveBroadcastContent: String
     
     struct Thumbnails: Codable {
+        let `default`: Thumbnail?
+        let medium: Thumbnail?
         let high: Thumbnail?
         
         struct Thumbnail: Codable {
             let url: String
+            let width: Int
+            let height: Int
         }
     }
 }
@@ -313,5 +377,10 @@ private struct ContentDetails: Codable {
 }
 
 private struct Status: Codable {
-    let uploadStatus: String
+    let uploadStatus: String?
+    let privacyStatus: String?
+    let license: String?
+    let embeddable: Bool?
+    let publicStatsViewable: Bool?
+    let madeForKids: Bool?
 }

@@ -10,6 +10,15 @@ class EventsViewModel: ObservableObject {
     
     private let db = Firestore.firestore()
     private let eventsCollectionName = "events"
+    private let isAdminView: Bool
+    
+    init(isAdminView: Bool = false) {
+        self.isAdminView = isAdminView
+        print("📱 EventsViewModel initialized")
+        Task {
+            await loadEvents()
+        }
+    }
     
     func loadEvents() async {
         print("📅 Starting to load events...")
@@ -17,42 +26,118 @@ class EventsViewModel: ObservableObject {
         error = nil
         
         do {
-            // Use the existing composite index (isPublished, startDate, __name__)
-            let eventsRef = db.collection(eventsCollectionName)
-                .whereField("isPublished", isEqualTo: true)
-                .whereField("startDate", isGreaterThanOrEqualTo: Timestamp(date: Date()))
-                .order(by: "startDate")
+            let eventsRef: Query
             
-            print("📅 Querying Firestore collection: \(eventsCollectionName)")
+            if isAdminView {
+                // Admin view: Get all events, just order by date
+                eventsRef = db.collection(eventsCollectionName)
+                    .order(by: "startDate", descending: false)
+            } else {
+                // Regular user view: Only get published events
+                eventsRef = db.collection(eventsCollectionName)
+                    .whereField("isPublished", isEqualTo: true)
+                    .whereField("startDate", isGreaterThanOrEqualTo: Timestamp(date: Date()))
+                    .order(by: "startDate", descending: false)
+            }
             
             let querySnapshot = try await eventsRef.getDocuments()
             
-            print("📅 Got response from Firestore")
-            print("📅 Found \(querySnapshot.documents.count) documents")
+            print("\n📅 Raw Firestore Data:")
+            print("Found \(querySnapshot.documents.count) documents")
             
-            // Filter deleted events in memory since we don't have an index for it
-            self.events = querySnapshot.documents.compactMap { document in
-                guard let isDeleted = document.data()["isDeleted"] as? Bool,
-                      !isDeleted else {
-                    return nil
+            // Print complete raw data for each document
+            for document in querySnapshot.documents {
+                print("\n📄 Document ID: \(document.documentID)")
+                let data = document.data()
+                for (key, value) in data {
+                    if let timestamp = value as? Timestamp {
+                        print("  \(key): \(timestamp.dateValue())")
+                    } else {
+                        print("  \(key): \(value)")
+                    }
                 }
-                return Event(document: document)
             }
             
-            print("📅 Parsed \(self.events.count) events after filtering deleted events")
+            // Parse events, filtering out deleted ones in memory
+            self.events = querySnapshot.documents.compactMap { document in
+                let data = document.data()
+                
+                // Skip deleted events (unless in admin view)
+                if !isAdminView {
+                    guard (data["isDeleted"] as? Bool) != true else {
+                        return nil
+                    }
+                }
+                
+                return Event(
+                    id: document.documentID,
+                    title: data["title"] as? String ?? "",
+                    description: data["description"] as? String ?? "",
+                    startDate: (data["startDate"] as? Timestamp)?.dateValue() ?? Date(),
+                    endDate: (data["endDate"] as? Timestamp)?.dateValue() ?? Date(),
+                    location: data["location"] as? String,
+                    locationURL: data["locationUrl"] as? String,
+                    recurrenceType: RecurrenceType(rawValue: data["recurrenceType"] as? String ?? "") ?? .none,
+                    isPublished: data["isPublished"] as? Bool ?? true
+                )
+            }
+            
+            print("\n📅 Parsed \(self.events.count) events")
+            print("Event Titles:")
+            for event in self.events {
+                print("- \(event.title)")
+            }
+            
         } catch {
             print("❌ Error loading events: \(error.localizedDescription)")
-            print("❌ Error details: \(error)")
             self.error = error
         }
         
         isLoading = false
     }
     
-    init() {
-        print("📱 EventsViewModel initialized")
-        Task {
+    func addEvent(_ event: Event) async throws {
+        let data: [String: Any] = [
+            "title": event.title,
+            "description": event.description,
+            "startDate": Timestamp(date: event.startDate),
+            "endDate": Timestamp(date: event.endDate),
+            "location": event.location as Any,
+            "locationUrl": event.locationURL as Any,
+            "recurrenceType": event.recurrenceType.rawValue,
+            "isPublished": event.isPublished,
+            "isDeleted": false,
+            "createdAt": Timestamp(date: Date()),
+            "updatedAt": Timestamp(date: Date())
+        ]
+        
+        try await db.collection(eventsCollectionName).document(event.id).setData(data)
+        await loadEvents()
+    }
+    
+    func updateEvent(_ event: Event) async throws {
+        let data: [String: Any] = [
+            "title": event.title,
+            "description": event.description,
+            "startDate": Timestamp(date: event.startDate),
+            "endDate": Timestamp(date: event.endDate),
+            "location": event.location as Any,
+            "locationUrl": event.locationURL as Any,
+            "recurrenceType": event.recurrenceType.rawValue,
+            "isPublished": event.isPublished,
+            "updatedAt": Timestamp(date: Date())
+        ]
+        
+        try await db.collection(eventsCollectionName).document(event.id).updateData(data)
+        await loadEvents()
+    }
+    
+    func deleteEvent(_ event: Event) async {
+        do {
+            try await db.collection(eventsCollectionName).document(event.id).delete()
             await loadEvents()
+        } catch {
+            print("Error deleting event: \(error)")
         }
     }
     

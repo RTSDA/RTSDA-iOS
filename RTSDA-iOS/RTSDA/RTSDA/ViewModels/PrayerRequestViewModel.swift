@@ -40,8 +40,8 @@ enum RequestType: String, CaseIterable {
 class PrayerRequestViewModel: ObservableObject {
     @Published var isSubmitting = false
     @Published var showSuccessAlert = false
-    @Published var errorMessage: String?
     @Published var showErrorAlert = false
+    @Published var errorMessage = ""
     
     private let db = Firestore.firestore()
     
@@ -55,7 +55,7 @@ class PrayerRequestViewModel: ObservableObject {
         isAnonymous: Bool
     ) async {
         isSubmitting = true
-        errorMessage = nil
+        errorMessage = ""
         
         do {
             let data: [String: Any] = [
@@ -76,7 +76,7 @@ class PrayerRequestViewModel: ObservableObject {
             showSuccessAlert = true
         } catch {
             isSubmitting = false
-            errorMessage = "Failed to submit prayer request: \(error.localizedDescription)"
+            errorMessage = error.localizedDescription
             showErrorAlert = true
         }
     }

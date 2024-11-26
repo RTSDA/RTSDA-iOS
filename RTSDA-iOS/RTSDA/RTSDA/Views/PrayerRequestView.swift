@@ -47,8 +47,17 @@ struct PrayerRequestView: View {
                 }
                 
                 Section(footer: Text("Private requests will only be shared with our prayer team.")) {
-                    TextEditor(text: $request)
-                        .frame(minHeight: 100)
+                    ZStack(alignment: .topLeading) {
+                        TextEditor(text: $request)
+                            .frame(minHeight: 100)
+                        
+                        if request.isEmpty {
+                            Text("Share your prayer request here...")
+                                .foregroundColor(Color(UIColor.placeholderText))
+                                .padding(.top, 8)
+                                .padding(.leading, 5)
+                        }
+                    }
                 }
                 
                 Section {
@@ -93,7 +102,7 @@ struct PrayerRequestView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cancel") {
+                    Button("Done") {
                         dismiss()
                     }
                 }
@@ -108,9 +117,7 @@ struct PrayerRequestView: View {
             .alert("Error", isPresented: $viewModel.showErrorAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                }
+                Text(viewModel.errorMessage)
             }
         }
     }

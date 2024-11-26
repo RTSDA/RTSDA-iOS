@@ -125,7 +125,6 @@ struct BeliefsView: View {
     ]
     
     @State private var selectedBelief: Belief?
-    @State private var showingDetail = false
     
     var body: some View {
         List {
@@ -138,7 +137,6 @@ struct BeliefsView: View {
             ForEach(beliefs) { belief in
                 Button(action: {
                     selectedBelief = belief
-                    showingDetail = true
                 }) {
                     HStack {
                         Text("\(belief.id).")
@@ -159,58 +157,56 @@ struct BeliefsView: View {
             }
         }
         .navigationTitle("Our Beliefs")
-        .sheet(isPresented: $showingDetail) {
-            if let belief = selectedBelief {
-                NavigationStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text(belief.summary)
-                                .font(.body)
-                                .padding(.horizontal)
-                            
-                            if !belief.verses.isEmpty {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Key Verses")
-                                        .font(.headline)
-                                        .padding(.horizontal)
-                                    
-                                    ForEach(belief.verses, id: \.self) { verse in
-                                        Button(action: {
-                                            if let url = URL(string: "youversion://bible?reference=\(verse.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? verse)") {
-                                                if UIApplication.shared.canOpenURL(url) {
-                                                    UIApplication.shared.open(url)
-                                                } else if let fallbackURL = URL(string: "https://www.bible.com/bible/1/\(verse.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? verse)") {
-                                                    UIApplication.shared.open(fallbackURL)
-                                                }
+        .sheet(item: $selectedBelief) { belief in
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(belief.summary)
+                            .font(.body)
+                            .padding(.horizontal)
+                        
+                        if !belief.verses.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Key Verses")
+                                    .font(.headline)
+                                    .padding(.horizontal)
+                                
+                                ForEach(belief.verses, id: \.self) { verse in
+                                    Button(action: {
+                                        if let url = URL(string: "youversion://bible?reference=\(verse.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? verse)") {
+                                            if UIApplication.shared.canOpenURL(url) {
+                                                UIApplication.shared.open(url)
+                                            } else if let fallbackURL = URL(string: "https://www.bible.com/bible/1/\(verse.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? verse)") {
+                                                UIApplication.shared.open(fallbackURL)
                                             }
-                                        }) {
-                                            HStack {
-                                                Text(verse)
-                                                    .foregroundColor(.primary)
-                                                Spacer()
-                                                Image(systemName: "book.fill")
-                                                    .foregroundColor(.secondary)
-                                            }
-                                            .padding(.horizontal)
-                                            .padding(.vertical, 8)
-                                            .background(Color(.systemBackground))
                                         }
-                                        .buttonStyle(PlainButtonStyle())
+                                    }) {
+                                        HStack {
+                                            Text(verse)
+                                                .foregroundColor(.primary)
+                                            Spacer()
+                                            Image(systemName: "book.fill")
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 8)
+                                        .background(Color(.systemBackground))
                                     }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
-                                .padding(.vertical)
-                                .background(Color(.secondarySystemBackground))
                             }
+                            .padding(.vertical)
+                            .background(Color(.secondarySystemBackground))
                         }
-                        .padding(.vertical)
                     }
-                    .navigationTitle(belief.title)
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") {
-                                showingDetail = false
-                            }
+                    .padding(.vertical)
+                }
+                .navigationTitle(belief.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            selectedBelief = nil
                         }
                     }
                 }

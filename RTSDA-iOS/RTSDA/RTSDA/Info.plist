@@ -2,11 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
 		<string>fetch</string>
 		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>org.rockvilletollandsda.rtsda.refresh</string>
+		<string>org.rockvilletollandsda.rtsda.processing</string>
 	</array>
 	<key>UIAppFonts</key>
 	<array>
@@ -34,6 +41,12 @@
 	<string>Reminders can be set for upcoming church events and activities you're interested in.</string>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>Access to media library is used for hymns and worship music during services.</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>sschool</string>

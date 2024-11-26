@@ -65,27 +65,57 @@ class AppAvailabilityService {
     }
     
     func openApp(urlScheme: String, fallbackURL: String) {
-        guard let appUrl = URL(string: urlScheme) else {
-            print("⚠️ Failed to create URL: \(urlScheme)")
-            if let fallback = URL(string: fallbackURL) {
-                print("❌ Falling back to: \(fallback)")
-                UIApplication.shared.open(fallback)
+        // First try the URL scheme
+        if let appUrl = URL(string: urlScheme) {
+            print("🔗 Attempting to open URL: \(appUrl)")
+            
+            // Check if we can open the URL
+            if UIApplication.shared.canOpenURL(appUrl) {
+                print("✅ Opening app URL: \(appUrl)")
+                UIApplication.shared.open(appUrl) { success in
+                    if !success {
+                        print("❌ Failed to open app URL: \(appUrl)")
+                        self.handleFallback(urlScheme: urlScheme, fallbackURL: fallbackURL)
+                    }
+                }
+            } else {
+                print("❌ Cannot open app URL: \(appUrl)")
+                handleFallback(urlScheme: urlScheme, fallbackURL: fallbackURL)
             }
-            return
+        } else {
+            print("⚠️ Failed to create URL: \(urlScheme)")
+            handleFallback(urlScheme: urlScheme, fallbackURL: fallbackURL)
+        }
+    }
+    
+    private func handleFallback(urlScheme: String, fallbackURL: String) {
+        // Special handling for Sabbath School app
+        if urlScheme == Self.schemes.sabbathSchool {
+            if let altUrl = URL(string: Self.schemes.sabbathSchoolAlt) {
+                print("✅ Opening Sabbath School web app: \(altUrl)")
+                UIApplication.shared.open(altUrl)
+                return
+            }
+        }
+        // Special handling for EGW Writings app
+        else if urlScheme == Self.schemes.egwWritings {
+            if let webUrl = URL(string: Self.schemes.egwWritingsWeb) {
+                print("✅ Opening EGW mobile web URL: \(webUrl)")
+                UIApplication.shared.open(webUrl)
+                return
+            }
         }
         
-        print("🔗 Attempting to open URL: \(appUrl)")
-        if UIApplication.shared.canOpenURL(appUrl) {
-            print("✅ Opening app URL: \(appUrl)")
-            UIApplication.shared.open(appUrl)
-        } else {
-            if let webUrl = URL(string: Self.schemes.egwWritingsWeb) {
-                print("✅ Opening mobile web URL: \(webUrl)")
-                UIApplication.shared.open(webUrl)
-            } else if let fallback = URL(string: fallbackURL) {
-                print("❌ Falling back to: \(fallback)")
-                UIApplication.shared.open(fallback)
+        // Try the fallback URL
+        if let fallback = URL(string: fallbackURL) {
+            print("⬇️ Falling back to: \(fallback)")
+            UIApplication.shared.open(fallback) { success in
+                if !success {
+                    print("❌ Failed to open fallback URL: \(fallback)")
+                }
             }
+        } else {
+            print("❌ Failed to create fallback URL: \(fallbackURL)")
         }
     }
 }

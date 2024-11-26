@@ -9,11 +9,11 @@ struct SplashScreenView: View {
     @State private var bibleReference = ""
     
     // Timing constants
-    private let fadeInDuration: Double = 1.2
-    private let baseDisplayDuration: Double = 2.0  // Base time to show verse
-    private let timePerWord: Double = 0.3         // Additional time per word
-    private let minDisplayDuration: Double = 3.0   // Minimum display time
-    private let maxDisplayDuration: Double = 8.0   // Maximum display time
+    private let fadeInDuration: Double = 0.5
+    private let baseDisplayDuration: Double = 1.0
+    private let timePerWord: Double = 0.15
+    private let minDisplayDuration: Double = 1.5
+    private let maxDisplayDuration: Double = 3.0
     
     private func calculateDisplayDuration(for text: String) -> Double {
         let words = text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }

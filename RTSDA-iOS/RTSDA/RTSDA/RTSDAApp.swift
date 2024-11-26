@@ -33,7 +33,7 @@ struct RTSDAApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SplashScreenView()
         }
     }
 }

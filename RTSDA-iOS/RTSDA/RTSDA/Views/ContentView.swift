@@ -3,12 +3,35 @@ import YouTubePlayerKit
 import SafariServices
 
 struct ContentView: View {
+    @StateObject private var authService = AuthenticationService()
+    @State private var selectedTab = 0
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    
     var body: some View {
-        TabView {
+        GeometryReader { geometry in
+            if horizontalSizeClass == .compact {
+                NavigationView {
+                    mainContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .navigationViewStyle(StackNavigationViewStyle())
+            } else {
+                NavigationView {
+                    mainContent
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                }
+                .navigationViewStyle(StackNavigationViewStyle())
+            }
+        }
+    }
+    
+    private var mainContent: some View {
+        TabView(selection: $selectedTab) {
             HomeView()
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
+                .tag(0)
             
             NavigationStack {
                 BulletinView()
@@ -16,6 +39,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Bulletin", systemImage: "newspaper")
             }
+            .tag(1)
             
             NavigationStack {
                 EventsView()
@@ -23,18 +47,39 @@ struct ContentView: View {
             .tabItem {
                 Label("Events", systemImage: "calendar")
             }
+            .tag(2)
             
             MessagesView()
                 .tabItem {
                     Label("Messages", systemImage: "video.and.waveform.fill")
                 }
+                .tag(3)
+            
+            if authService.isAuthenticated {
+                AdminDashboardView()
+                    .environmentObject(authService)
+                    .tabItem {
+                        Label("Admin", systemImage: "lock.shield")
+                    }
+                    .tag(4)
+            }
             
             MoreView()
+                .environmentObject(authService)
                 .tabItem {
                     Label("More", systemImage: "ellipsis")
                 }
+                .tag(5)
         }
-        .accentColor(Color(hex: "fb8b23"))
+        .navigationBarHidden(true)
+        .onAppear {
+            authService.checkAuthState()
+        }
+        .onChange(of: authService.isAuthenticated) { _, isAuthenticated in
+            if isAuthenticated {
+                selectedTab = 4
+            }
+        }
     }
 }
 
@@ -48,149 +93,158 @@ enum ChurchContact {
     static var phoneUrl: String {
         "tel://\(phone.replacingOccurrences(of: "-", with: ""))"
     }
+    static let facebook = "https://www.facebook.com/rockvilletollandsda"
 }
 
 struct HomeView: View {
     @State private var scrollTarget: ScrollTarget?
     @State private var showingSafariView = false
     @State private var safariURL: URL?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     enum ScrollTarget {
         case serviceTimes
     }
     
     var body: some View {
-        NavigationStack {
+        GeometryReader { geometry in
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 0) {
                         // Hero Image Section
-                        ZStack(alignment: .bottom) {
-                            Image("church_hero")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(height: 300)
-                                .clipped()
-                            
-                            // Gradient overlay
-                            LinearGradient(
-                                gradient: Gradient(colors: [.clear, .black.opacity(0.7)]),
-                                startPoint: .top,
-                                endPoint: .bottom
+                        Image("church_hero")
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: geometry.size.width, height: horizontalSizeClass == .compact ? 300 : geometry.size.height * 0.3)
+                            .clipped()
+                            .overlay(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [.clear, .black.opacity(0.5)]),
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
                             )
-                            .frame(height: 150)
-                        }
                         
-                        // Quick Links Section
-                        VStack(spacing: 24) {
-                            Text("Quick Links")
-                                .font(.custom("Montserrat-Bold", size: 24))
-                                .padding(.top)
-                            
-                            LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 16) {
-                                QuickLinkButton(
-                                    title: "Service Times",
-                                    icon: "clock.fill",
-                                    color: Color(hex: "fb8b23")
-                                ) {
-                                    withAnimation {
-                                        scrollTarget = .serviceTimes
-                                    }
-                                }
-                                
-                                QuickLinkButton(
-                                    title: "Directions",
-                                    icon: "location.fill",
-                                    color: Color(hex: "fb8b23")
-                                ) {
-                                    if let url = URL(string: "https://maps.apple.com/?address=9+Hartford+Turnpike,+Tolland,+CT+06084") {
-                                        UIApplication.shared.open(url)
-                                    }
-                                }
-                                
-                                QuickLinkButton(
-                                    title: "Contact Us",
-                                    icon: "envelope.fill",
-                                    color: Color(hex: "fb8b23")
-                                ) {
-                                    if let url = URL(string: ChurchContact.emailUrl) {
-                                        UIApplication.shared.open(url)
-                                    }
-                                }
-                                
-                                QuickLinkButton(
-                                    title: "Give Online",
-                                    icon: "heart.fill",
-                                    color: Color(hex: "fb8b23")
-                                ) {
-                                    if let url = URL(string: "https://adventistgiving.org/donate/AN4MJG") {
-                                        safariURL = url
-                                        showingSafariView = true
-                                    }
-                                }
+                        // Content Section
+                        if horizontalSizeClass == .compact {
+                            VStack(spacing: 16) {
+                                quickLinksSection
+                                aboutUsSection
                             }
-                            .padding(.horizontal)
-                        }
-                        .padding(.vertical)
-                        
-                        // About Section
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("About Us")
-                                .font(.custom("Montserrat-Bold", size: 24))
-                            
-                            Text("We are a vibrant, welcoming Seventh-day Adventist church community located in Tolland, Connecticut. Our mission is to share God's love through worship, fellowship, and service.")
-                                .font(.custom("Montserrat-Regular", size: 16))
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
-                            
-                            // Service Times
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Service Times")
-                                    .font(.custom("Montserrat-SemiBold", size: 20))
-                                    .padding(.top, 8)
-                                    .id(ScrollTarget.serviceTimes)
-                                
-                                ServiceTimeRow(day: "Saturday", time: "9:15 AM", name: "Sabbath School")
-                                ServiceTimeRow(day: "Saturday", time: "11:00 AM", name: "Worship Service")
-                                
-                                Text("Join us for worship!")
-                                    .font(.custom("Montserrat-Regular", size: 14))
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 4)
+                            .padding()
+                        } else {
+                            HStack(alignment: .top, spacing: 16) {
+                                quickLinksSection
+                                    .frame(maxWidth: geometry.size.width * 0.4)
+                                aboutUsSection
                             }
+                            .padding()
                         }
-                        .padding()
-                        .background(Color(UIColor.secondarySystemBackground))
                     }
+                    .frame(minHeight: geometry.size.height)
                 }
-                .onChange(of: scrollTarget) { oldValue, newValue in
-                    if let target = newValue {
+                .onChange(of: scrollTarget) { _, target in
+                    if let target {
                         withAnimation {
                             proxy.scrollTo(target, anchor: .top)
                         }
-                        // Reset after scrolling
                         scrollTarget = nil
-                    }
-                }
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .principal) {
-                        Image("church_logo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(height: 40)
                     }
                 }
             }
         }
-        .fullScreenCover(isPresented: $showingSafariView) {
+        .navigationTitle("")
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Image("church_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 40)
+            }
+        }
+        .sheet(isPresented: $showingSafariView) {
             if let url = safariURL {
                 SafariView(url: url)
                     .ignoresSafeArea()
+            }
+        }
+    }
+    
+    private var quickLinksSection: some View {
+        VStack(alignment: .leading, spacing: horizontalSizeClass == .compact ? 16 : 8) {
+            Text("Quick Links")
+                .font(.custom("Montserrat-Bold", size: horizontalSizeClass == .compact ? 24 : 20))
+            
+            quickLinksGrid
+        }
+    }
+    
+    private var quickLinksGrid: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: horizontalSizeClass == .compact ? 16 : 8),
+                GridItem(.flexible(), spacing: horizontalSizeClass == .compact ? 16 : 8)
+            ],
+            spacing: horizontalSizeClass == .compact ? 16 : 8
+        ) {
+            QuickLinkButton(title: "Prayer Request", icon: "hands.sparkles.fill") {
+                let prayerRequestView = PrayerRequestView()
+                let hostingController = UIHostingController(rootView: prayerRequestView)
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first,
+                   let rootViewController = window.rootViewController {
+                    rootViewController.present(hostingController, animated: true)
+                }
+            }
+            
+            QuickLinkButton(title: "Directions", icon: "location.fill") {
+                if let url = URL(string: "https://maps.apple.com/?address=9+Hartford+Turnpike,+Tolland,+CT+06084") {
+                    UIApplication.shared.open(url)
+                }
+            }
+            
+            QuickLinkButton(title: "Contact Us", icon: "envelope.fill") {
+                if let url = URL(string: ChurchContact.emailUrl) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            
+            QuickLinkButton(title: "Give Online", icon: "heart.fill") {
+                if let url = URL(string: "https://adventistgiving.org/donate/AN4MJG") {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                }
+            }
+        }
+    }
+    
+    private var aboutUsSection: some View {
+        VStack(alignment: .leading, spacing: horizontalSizeClass == .compact ? 16 : 8) {
+            Text("About Us")
+                .font(.custom("Montserrat-Bold", size: horizontalSizeClass == .compact ? 24 : 20))
+            
+            aboutUsContent
+        }
+    }
+    
+    private var aboutUsContent: some View {
+        VStack(alignment: .leading, spacing: horizontalSizeClass == .compact ? 16 : 8) {
+            Text("We are a vibrant, welcoming Seventh-day Adventist church community located in Tolland, Connecticut. Our mission is to share God's love through worship, fellowship, and service.")
+                .font(.body)
+                .foregroundColor(.secondary)
+            
+            Divider()
+                .padding(.vertical, 8)
+            
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Service Times")
+                    .font(.custom("Montserrat-Bold", size: 20))
+                    .id(ScrollTarget.serviceTimes)
+                
+                VStack(spacing: 12) {
+                    ServiceTimeRow(day: "Saturday", time: "9:15 AM", name: "Sabbath School")
+                    ServiceTimeRow(day: "Saturday", time: "11:00 AM", name: "Worship Service")
+                    ServiceTimeRow(day: "Wednesday", time: "6:30 PM", name: "Prayer Meeting")
+                }
             }
         }
     }
@@ -199,26 +253,24 @@ struct HomeView: View {
 struct QuickLinkButton: View {
     let title: String
     let icon: String
-    let color: Color
-    let action: () -> Void
+    var color: Color = Color(hex: "fb8b23")
+    var action: () -> Void
     
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 24))
-                    .foregroundColor(color)
-                
-                Text(title)
-                    .font(.custom("Montserrat-SemiBold", size: 14))
-                    .foregroundColor(.primary)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color(UIColor.secondarySystemBackground))
-            .cornerRadius(12)
+        VStack {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundColor(color)
+            Text(title)
+                .font(.custom("Montserrat-Medium", size: 14))
+                .foregroundColor(.primary)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color(UIColor.secondarySystemBackground))
+        .cornerRadius(12)
+        .onTapGesture(perform: action)
     }
 }
 
@@ -431,25 +483,35 @@ struct LocationRow: View {
     var isClickable: Bool = true
     
     var body: some View {
-        HStack {
-            Image(systemName: "mappin.circle.fill")
-                .foregroundColor(isClickable ? .accentColor : .secondary)
-            Text(location)
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundColor(isClickable ? .primary : .secondary)
-                .multilineTextAlignment(.leading)
-            Spacer()
+        Button(action: {
             if isClickable {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.accentColor)
+                if let url = URL(string: "https://maps.apple.com/?address=9+Hartford+Turnpike,+Tolland,+CT+06084") {
+                    UIApplication.shared.open(url)
+                }
             }
+        }) {
+            HStack {
+                Image(systemName: "mappin.circle.fill")
+                    .foregroundColor(isClickable ? .accentColor : .secondary)
+                Text(location)
+                    .font(.custom("Montserrat-Regular", size: 14))
+                    .foregroundColor(isClickable ? .primary : .secondary)
+                    .multilineTextAlignment(.leading)
+                Spacer()
+                if isClickable {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.accentColor)
+                }
+            }
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isClickable ? Color(hex: "fb8b23").opacity(0.1) : Color(.systemGray6))
+            )
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isClickable ? Color(hex: "fb8b23").opacity(0.1) : Color(.systemGray6))
-        )
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!isClickable)
     }
 }
 
@@ -505,54 +567,79 @@ struct MessagesView: View {
                             }
                             
                             // Media Links Row
-                            HStack(spacing: 16) {
-                                // YouTube Channel Link Button
-                                Link(destination: URL(string: YouTubeService.channelUrl)!) {
-                                    VStack(spacing: 8) {
-                                        HStack {
+                            VStack(spacing: 12) {
+                                Text("Listen & Watch")
+                                    .font(.custom("Montserrat-SemiBold", size: 16))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                
+                                HStack(spacing: 8) {
+                                    // YouTube Channel Link Button
+                                    Link(destination: URL(string: YouTubeService.channelUrl)!) {
+                                        HStack(spacing: 4) {
                                             Image(systemName: "play.rectangle.fill")
                                                 .foregroundColor(.red)
                                             Text("YouTube")
+                                                .font(.custom("Montserrat-Medium", size: 14))
                                                 .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.8)
                                         }
-                                        .padding()
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
                                         .background(Color(.systemBackground))
+                                        .cornerRadius(8)
                                     }
-                                }
-                                .buttonStyle(.plain)
-                                
-                                // Spotify Channel Link Button
-                                Button {
-                                    AppAvailabilityService.shared.openApp(
-                                        urlScheme: AppAvailabilityService.schemes.spotify,
-                                        fallbackURL: "https://open.spotify.com/show/2ARQaUBaGnVTiF9syrKDvO"
-                                    )
-                                } label: {
-                                    VStack(spacing: 8) {
-                                        HStack {
+                                    .buttonStyle(.plain)
+                                    
+                                    // Spotify Channel Link Button
+                                    Button {
+                                        AppAvailabilityService.shared.openApp(
+                                            urlScheme: AppAvailabilityService.schemes.spotify,
+                                            fallbackURL: "https://open.spotify.com/show/2ARQaUBaGnVTiF9syrKDvO"
+                                        )
+                                    } label: {
+                                        HStack(spacing: 4) {
                                             Image(systemName: "headphones")
                                                 .foregroundColor(.green)
                                             Text("Spotify")
+                                                .font(.custom("Montserrat-Medium", size: 14))
                                                 .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.8)
                                         }
-                                        .padding()
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
                                         .background(Color(.systemBackground))
+                                        .cornerRadius(8)
                                     }
+                                    .buttonStyle(.plain)
+                                    
+                                    // Apple Podcasts Link Button
+                                    Button {
+                                        AppAvailabilityService.shared.openApp(
+                                            urlScheme: AppAvailabilityService.schemes.podcasts,
+                                            fallbackURL: "https://podcasts.apple.com/us/podcast/rockville-tolland-sda-church/id1234567890"
+                                        )
+                                    } label: {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "waveform")
+                                                .foregroundColor(.purple)
+                                            Text("Podcasts")
+                                                .font(.custom("Montserrat-Medium", size: 14))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.8)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
+                                        .background(Color(.systemBackground))
+                                        .cornerRadius(8)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
-                                
-                                // Apple Podcasts Link Button
-                                Button {
-                                    AppAvailabilityService.shared.openApp(
-                                        urlScheme: AppAvailabilityService.schemes.podcasts,
-                                        fallbackURL: "https://podcasts.apple.com/us/podcast/rockville-tolland-sda-church/id1630777684"
-                                    )
-                                } label: {
-                                    Label("Apple Podcasts", systemImage: "mic.circle.fill")
-                                        .labelStyle(.iconOnly)
-                                        .foregroundColor(Color(red: 0.6, green: 0.25, blue: 0.98))  // Apple Podcasts purple
-                                }
-                                .buttonStyle(.plain)
                             }
                             .padding(.horizontal)
                         }
@@ -692,12 +779,24 @@ struct LivestreamCard: View {
 }
 
 struct MoreView: View {
+    @EnvironmentObject private var authService: AuthenticationService
     @State private var showingSafariView = false
     @State private var safariURL: URL?
+    @State private var showingAdminLogin = false
     
     var body: some View {
         NavigationStack {
             List {
+                if !authService.isAuthenticated {
+                    Section("Admin") {
+                        Button(action: {
+                            showingAdminLogin = true
+                        }) {
+                            Label("Admin Login", systemImage: "lock.shield")
+                        }
+                    }
+                }
+                
                 Section("Resources") {
                     Button {
                         AppAvailabilityService.shared.openApp(
@@ -732,16 +831,17 @@ struct MoreView: View {
                             fallbackURL: AppAvailabilityService.appStoreURLs.hymnal
                         )
                     } label: {
-                        Label("SDA Hymnal", systemImage: "music.note")
-                            .overlay(alignment: .trailing) {
-                                Text("Coming Soon")
-                                    .font(.caption2)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.accentColor)
-                                    .clipShape(Capsule())
-                            }
+                        HStack {
+                            Label("SDA Hymnal", systemImage: "music.note")
+                            Spacer()
+                            Text("Coming Soon")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor)
+                                .clipShape(Capsule())
+                        }
                     }
                     .disabled(true)
                 }
@@ -796,16 +896,20 @@ struct MoreView: View {
                     HStack {
                         Label("Version", systemImage: "info.circle.fill")
                         Spacer()
-                        Text("1.0.0")
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
                             .foregroundColor(.secondary)
                     }
                 }
             }
             .navigationTitle("More")
         }
+        .sheet(isPresented: $showingAdminLogin) {
+            AdminLoginView()
+        }
         .sheet(isPresented: $showingSafariView) {
             if let url = safariURL {
                 SafariView(url: url)
+                    .ignoresSafeArea()
             }
         }
     }
@@ -848,6 +952,10 @@ extension UIApplication {
         }
         return nil
     }
+}
+
+enum NavigationDestination {
+    case prayerRequest
 }
 
 #Preview {

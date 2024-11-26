@@ -60,7 +60,7 @@ struct Event: Identifiable, Codable {
     let startDate: Date
     let endDate: Date
     let location: String?
-    let locationUrl: String?
+    let locationURL: String?
     let registrationRequired: Bool
     let registrationURL: String?
     let recurrenceType: RecurrenceType
@@ -86,12 +86,12 @@ struct Event: Identifiable, Codable {
     }
     
     var hasLocationUrl: Bool {
-        return (locationUrl != nil && !locationUrl!.isEmpty)
+        return (locationURL != nil && !locationURL!.isEmpty)
     }
     
     var canOpenInMaps: Bool {
-        if let locationUrl = locationUrl, !locationUrl.isEmpty,
-           let url = URL(string: locationUrl) {
+        if let locationURL = locationURL, !locationURL.isEmpty,
+           let url = URL(string: locationURL) {
             return true
         }
         if let location = location, !location.isEmpty {
@@ -104,15 +104,15 @@ struct Event: Identifiable, Codable {
         if let location = location {
             return location
         }
-        if let locationUrl = locationUrl {
+        if let locationURL = locationURL {
             // Try to extract a readable location from the URL
-            if let url = URL(string: locationUrl) {
+            if let url = URL(string: locationURL) {
                 let components = url.pathComponents
                 if components.count > 1 {
-                    return components.last?.replacingOccurrences(of: "+", with: " ") ?? locationUrl
+                    return components.last?.replacingOccurrences(of: "+", with: " ") ?? locationURL
                 }
             }
-            return locationUrl
+            return locationURL
         }
         return "No location specified"
     }
@@ -125,7 +125,7 @@ struct Event: Identifiable, Codable {
             // but we'll request it for better functionality
             _ = try? await permissionsManager.requestLocationAccess()
             
-            if let locationUrl = locationUrl, let url = URL(string: locationUrl) {
+            if let locationURL = locationURL, let url = URL(string: locationURL) {
                 _ = await UIApplication.shared.open(url)
             } else if let location = location, !location.isEmpty {
                 let searchQuery = location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? location
@@ -157,7 +157,7 @@ struct Event: Identifiable, Codable {
             event.notes = self.description
             event.startDate = self.startDate
             event.endDate = self.endDate
-            event.location = self.location ?? self.locationUrl
+            event.location = self.location ?? self.locationURL
             
             // Set recurrence rule if applicable
             if let rule = self.recurrenceType.calendarRecurrenceRule {
@@ -196,7 +196,7 @@ struct Event: Identifiable, Codable {
         case startDate = "startDate"
         case endDate = "endDate"
         case location
-        case locationUrl = "locationUrl"
+        case locationURL = "locationUrl"
         case registrationRequired = "registration_required"
         case registrationURL = "registration_url"
         case recurrenceType = "recurrenceType"
@@ -225,7 +225,7 @@ struct Event: Identifiable, Codable {
         }
         
         location = try container.decodeIfPresent(String.self, forKey: .location)
-        locationUrl = try container.decodeIfPresent(String.self, forKey: .locationUrl)
+        locationURL = try container.decodeIfPresent(String.self, forKey: .locationURL)
         registrationRequired = try container.decode(Bool.self, forKey: .registrationRequired)
         registrationURL = try container.decodeIfPresent(String.self, forKey: .registrationURL)
         
@@ -235,6 +235,34 @@ struct Event: Identifiable, Codable {
         imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
         isPublished = try container.decode(Bool.self, forKey: .isPublished)
         isDeleted = try container.decode(Bool.self, forKey: .isDeleted)
+    }
+    
+    init(id: String = UUID().uuidString,
+         title: String,
+         description: String,
+         startDate: Date,
+         endDate: Date,
+         location: String? = nil,
+         locationURL: String? = nil,
+         registrationRequired: Bool = false,
+         registrationURL: String? = nil,
+         recurrenceType: RecurrenceType = .none,
+         imageURL: String? = nil,
+         isPublished: Bool = true,
+         isDeleted: Bool = false) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.startDate = startDate
+        self.endDate = endDate
+        self.location = location
+        self.locationURL = locationURL
+        self.registrationRequired = registrationRequired
+        self.registrationURL = registrationURL
+        self.recurrenceType = recurrenceType
+        self.imageURL = imageURL
+        self.isPublished = isPublished
+        self.isDeleted = isDeleted
     }
 }
 
@@ -259,7 +287,7 @@ extension Event {
         self.startDate = startTimestamp.dateValue()
         self.endDate = endTimestamp.dateValue()
         self.location = data["location"] as? String
-        self.locationUrl = data["locationUrl"] as? String
+        self.locationURL = data["locationUrl"] as? String
         self.registrationRequired = data["registration_required"] as? Bool ?? false
         self.registrationURL = data["registration_url"] as? String
         self.recurrenceType = RecurrenceType(rawValue: recurrenceTypeString) ?? .none
