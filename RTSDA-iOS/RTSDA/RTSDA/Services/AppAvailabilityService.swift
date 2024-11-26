@@ -14,8 +14,8 @@ class AppAvailabilityService {
         egwWritingsWeb: "https://m.egwwritings.org/en/folders/2",  // Mobile web version as fallback
         hymnal: "sdahymnal://",
         bible: "youversion://",
-        facebook: "fb://profile/100064558722961",  // RTSDA Facebook profile ID
-        tiktok: "tiktok://user/@rockvilletollandsda",  // RTSDA TikTok profile
+        facebook: "https://www.facebook.com/rockvilletollandsdachurch/",  // RTSDA Facebook page
+        tiktok: "https://www.tiktok.com/@rockvilletollandsda",  // RTSDA TikTok profile
         spotify: "spotify://show/2ARQaUBaGnVTiF9syrKDvO",  // RTSDA Spotify show
         podcasts: "podcasts://podcasts.apple.com/us/podcast/rockville-tolland-sda-church/id1630777684"  // RTSDA Apple Podcasts
     )

@@ -93,7 +93,7 @@ enum ChurchContact {
     static var phoneUrl: String {
         "tel://\(phone.replacingOccurrences(of: "-", with: ""))"
     }
-    static let facebook = "https://www.facebook.com/rockvilletollandsda"
+    static let facebook = "https://www.facebook.com/rockvilletollandsdachurch/"
 }
 
 struct HomeView: View {
@@ -861,12 +861,7 @@ struct MoreView: View {
                         Label("Call Us", systemImage: "phone.fill")
                     }
                     
-                    Button {
-                        AppAvailabilityService.shared.openApp(
-                            urlScheme: AppAvailabilityService.schemes.facebook,
-                            fallbackURL: "https://www.facebook.com/rockvilletollandsda"
-                        )
-                    } label: {
+                    Link(destination: URL(string: "https://www.facebook.com/rockvilletollandsdachurch/")!) {
                         Label("Facebook", systemImage: "link")
                     }
                     

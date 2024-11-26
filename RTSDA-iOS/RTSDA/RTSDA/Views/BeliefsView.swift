@@ -126,6 +126,55 @@ struct BeliefsView: View {
     
     @State private var selectedBelief: Belief?
     
+    private func formatVerseForURL(_ verse: String) -> String {
+        // Convert "Romans 4:11" to "rom.4.11"
+        let bookMap = [
+            "Genesis": "gen", "Exodus": "exo", "Leviticus": "lev", "Numbers": "num",
+            "Deuteronomy": "deu", "Joshua": "jos", "Judges": "jdg", "Ruth": "rut",
+            "1 Samuel": "1sa", "2 Samuel": "2sa", "1 Kings": "1ki", "2 Kings": "2ki",
+            "1 Chronicles": "1ch", "2 Chronicles": "2ch", "Ezra": "ezr", "Nehemiah": "neh",
+            "Esther": "est", "Job": "job", "Psalm": "psa", "Psalms": "psa", "Proverbs": "pro",
+            "Ecclesiastes": "ecc", "Song of Solomon": "sng", "Isaiah": "isa", "Jeremiah": "jer",
+            "Lamentations": "lam", "Ezekiel": "ezk", "Daniel": "dan", "Hosea": "hos",
+            "Joel": "jol", "Amos": "amo", "Obadiah": "oba", "Jonah": "jon",
+            "Micah": "mic", "Nahum": "nam", "Habakkuk": "hab", "Zephaniah": "zep",
+            "Haggai": "hag", "Zechariah": "zec", "Malachi": "mal", "Matthew": "mat",
+            "Mark": "mrk", "Luke": "luk", "John": "jhn", "Acts": "act",
+            "Romans": "rom", "1 Corinthians": "1co", "2 Corinthians": "2co", "Galatians": "gal",
+            "Ephesians": "eph", "Philippians": "php", "Colossians": "col", "1 Thessalonians": "1th",
+            "2 Thessalonians": "2th", "1 Timothy": "1ti", "2 Timothy": "2ti", "Titus": "tit",
+            "Philemon": "phm", "Hebrews": "heb", "James": "jas", "1 Peter": "1pe",
+            "2 Peter": "2pe", "1 John": "1jn", "2 John": "2jn", "3 John": "3jn",
+            "Jude": "jud", "Revelation": "rev"
+        ]
+        
+        let components = verse.components(separatedBy: " ")
+        guard components.count >= 2 else { return verse.lowercased() }
+        
+        // Handle book name (including numbered books like "1 Corinthians")
+        var bookName = ""
+        var remainingComponents: [String] = components
+        
+        if let firstComponent = components.first, let _ = Int(firstComponent) {
+            if components.count >= 2 {
+                bookName = components[0] + " " + components[1]
+                remainingComponents = Array(components.dropFirst(2))
+            }
+        } else {
+            bookName = components[0]
+            remainingComponents = Array(components.dropFirst())
+        }
+        
+        guard let bookCode = bookMap[bookName] else { return verse.lowercased() }
+        
+        // Format chapter and verse
+        let reference = remainingComponents.joined(separator: "")
+            .replacingOccurrences(of: ":", with: ".")
+            .replacingOccurrences(of: "-", with: "-")
+        
+        return "\(bookCode).\(reference)"
+    }
+    
     var body: some View {
         List {
             Text("The Seventh-day Adventist Church's 28 Fundamental Beliefs are a concise expression of our core beliefs. These beliefs reveal God's character and His plan for our lives.")
@@ -173,26 +222,20 @@ struct BeliefsView: View {
                                 
                                 ForEach(belief.verses, id: \.self) { verse in
                                     Button(action: {
-                                        if let url = URL(string: "youversion://bible?reference=\(verse.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? verse)") {
-                                            if UIApplication.shared.canOpenURL(url) {
-                                                UIApplication.shared.open(url)
-                                            } else if let fallbackURL = URL(string: "https://www.bible.com/bible/1/\(verse.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? verse)") {
-                                                UIApplication.shared.open(fallbackURL)
-                                            }
+                                        let formattedVerse = formatVerseForURL(verse)
+                                        if let url = URL(string: "https://www.bible.com/bible/1/\(formattedVerse)") {
+                                            UIApplication.shared.open(url)
                                         }
                                     }) {
-                                        HStack {
-                                            Text(verse)
-                                                .foregroundColor(.primary)
-                                            Spacer()
-                                            Image(systemName: "book.fill")
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .padding(.horizontal)
-                                        .padding(.vertical, 8)
-                                        .background(Color(.systemBackground))
+                                        Text(verse)
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                        Image(systemName: "book.fill")
+                                            .foregroundColor(.secondary)
                                     }
-                                    .buttonStyle(PlainButtonStyle())
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 8)
+                                    .background(Color(.systemBackground))
                                 }
                             }
                             .padding(.vertical)
