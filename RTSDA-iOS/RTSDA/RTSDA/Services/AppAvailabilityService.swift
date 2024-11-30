@@ -7,42 +7,41 @@ class AppAvailabilityService {
     private var availabilityCache: [String: Bool] = [:]
     
     // Common URL schemes
-    static let schemes = (
-        sabbathSchool: "com.googleusercontent.apps.443920152945-d0kf5h2dubt0jbcntq8l0qeg6lbpgn60://",  // URL scheme from Sabbath School Info.plist
-        sabbathSchoolAlt: "https://sabbath-school.adventech.io",  // Official web app URL
-        egwWritings: "egw-ios://",  // URL scheme from Info.plist (works in Safari)
-        egwWritingsWeb: "https://m.egwwritings.org/en/folders/2",  // Mobile web version as fallback
-        hymnal: "sdahymnal://",
-        bible: "youversion://",
-        facebook: "https://www.facebook.com/rockvilletollandsdachurch/",  // RTSDA Facebook page
-        tiktok: "https://www.tiktok.com/@rockvilletollandsda",  // RTSDA TikTok profile
-        spotify: "spotify://show/2ARQaUBaGnVTiF9syrKDvO",  // RTSDA Spotify show
-        podcasts: "podcasts://podcasts.apple.com/us/podcast/rockville-tolland-sda-church/id1630777684"  // RTSDA Apple Podcasts
-    )
+    struct Schemes {
+        static let bible = "youversion://"
+        static let egw = "egw-ios://"
+        static let hymnal = "sdahymnal://"
+        static let sabbathSchool = "com.googleusercontent.apps.443920152945-d0kf5h2dubt0jbcntq8l0qeg6lbpgn60://"
+        static let sabbathSchoolAlt = "https://sabbath-school.adventech.io"
+        static let egwWritingsWeb = "https://m.egwwritings.org/en/folders/2"
+        static let facebook = "https://www.facebook.com/rockvilletollandsdachurch/"
+        static let tiktok = "https://www.tiktok.com/@rockvilletollandsda"
+        static let spotify = "spotify://show/2ARQaUBaGnVTiF9syrKDvO"
+        static let podcasts = "podcasts://podcasts.apple.com/us/podcast/rockville-tolland-sda-church/id1630777684"
+    }
     
     // App Store fallback URLs
-    static let appStoreURLs = (
-        sabbathSchool: "https://apps.apple.com/us/app/sabbath-school/id895272167",
-        egwWritings: "https://apps.apple.com/us/app/egw-writings-2/id994076136",  // Updated to correct App Store ID
-        egwWritingsWeb: "https://m.egwwritings.org/en/folders/2",  // Mobile web version as primary fallback
-        hymnal: "https://apps.apple.com/us/app/sda-hymnal/id1052432680",
-        bible: "https://apps.apple.com/us/app/bible/id282935706",  // YouVersion Bible App
-        facebook: "https://apps.apple.com/us/app/facebook/id284882215",
-        tiktok: "https://apps.apple.com/us/app/tiktok/id835599320",
-        spotify: "https://apps.apple.com/us/app/spotify-music-and-podcasts/id324684580",
-        podcasts: "https://apps.apple.com/us/app/apple-podcasts/id525463029"
-    )
+    struct AppStoreURLs {
+        static let sabbathSchool = "https://apps.apple.com/us/app/sabbath-school/id895272167"
+        static let egwWritings = "https://apps.apple.com/us/app/egw-writings-2/id994076136"
+        static let egwWritingsWeb = "https://m.egwwritings.org/en/folders/2"
+        static let hymnal = "https://apps.apple.com/us/app/hymnal-adventist/id6446034427"
+        static let bible = "https://apps.apple.com/us/app/bible/id282935706"
+        static let facebook = "https://apps.apple.com/us/app/facebook/id284882215"
+        static let tiktok = "https://apps.apple.com/us/app/tiktok/id835599320"
+        static let spotify = "https://apps.apple.com/us/app/spotify-music-and-podcasts/id324684580"
+        static let podcasts = "https://apps.apple.com/us/app/apple-podcasts/id525463029"
+    }
     
     private init() {
         // Check for common apps at launch
-        checkAvailability(urlScheme: Self.schemes.sabbathSchool)
-        checkAvailability(urlScheme: Self.schemes.egwWritings)
-        checkAvailability(urlScheme: Self.schemes.hymnal)
-        checkAvailability(urlScheme: Self.schemes.bible)
-        checkAvailability(urlScheme: Self.schemes.facebook)
-        checkAvailability(urlScheme: Self.schemes.tiktok)
-        checkAvailability(urlScheme: Self.schemes.spotify)
-        checkAvailability(urlScheme: Self.schemes.podcasts)
+        checkAvailability(urlScheme: Schemes.sabbathSchool)
+        checkAvailability(urlScheme: Schemes.egw)
+        checkAvailability(urlScheme: Schemes.bible)
+        checkAvailability(urlScheme: Schemes.facebook)
+        checkAvailability(urlScheme: Schemes.tiktok)
+        checkAvailability(urlScheme: Schemes.spotify)
+        checkAvailability(urlScheme: Schemes.podcasts)
     }
     
     func isAppInstalled(urlScheme: String) -> Bool {
@@ -90,16 +89,16 @@ class AppAvailabilityService {
     
     private func handleFallback(urlScheme: String, fallbackURL: String) {
         // Special handling for Sabbath School app
-        if urlScheme == Self.schemes.sabbathSchool {
-            if let altUrl = URL(string: Self.schemes.sabbathSchoolAlt) {
+        if urlScheme == Schemes.sabbathSchool {
+            if let altUrl = URL(string: Schemes.sabbathSchoolAlt) {
                 print("✅ Opening Sabbath School web app: \(altUrl)")
                 UIApplication.shared.open(altUrl)
                 return
             }
         }
         // Special handling for EGW Writings app
-        else if urlScheme == Self.schemes.egwWritings {
-            if let webUrl = URL(string: Self.schemes.egwWritingsWeb) {
+        else if urlScheme == Schemes.egw {
+            if let webUrl = URL(string: Schemes.egwWritingsWeb) {
                 print("✅ Opening EGW mobile web URL: \(webUrl)")
                 UIApplication.shared.open(webUrl)
                 return

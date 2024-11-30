@@ -5,27 +5,8 @@ import SafariServices
 struct ContentView: View {
     @StateObject private var authService = AuthenticationService()
     @State private var selectedTab = 0
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     var body: some View {
-        GeometryReader { geometry in
-            if horizontalSizeClass == .compact {
-                NavigationView {
-                    mainContent
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .navigationViewStyle(StackNavigationViewStyle())
-            } else {
-                NavigationView {
-                    mainContent
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                }
-                .navigationViewStyle(StackNavigationViewStyle())
-            }
-        }
-    }
-    
-    private var mainContent: some View {
         TabView(selection: $selectedTab) {
             HomeView()
                 .tabItem {
@@ -33,13 +14,11 @@ struct ContentView: View {
                 }
                 .tag(0)
             
-            NavigationStack {
-                BulletinView()
-            }
-            .tabItem {
-                Label("Bulletin", systemImage: "newspaper")
-            }
-            .tag(1)
+            BulletinView()
+                .tabItem {
+                    Label("Bulletin", systemImage: "newspaper.fill")
+                }
+                .tag(1)
             
             NavigationStack {
                 EventsView()
@@ -51,9 +30,16 @@ struct ContentView: View {
             
             MessagesView()
                 .tabItem {
-                    Label("Messages", systemImage: "video.and.waveform.fill")
+                    Label("Messages", systemImage: "video.fill")
                 }
                 .tag(3)
+            
+            MoreView()
+                .environmentObject(authService)
+                .tabItem {
+                    Label("More", systemImage: "ellipsis")
+                }
+                .tag(4)
             
             if authService.isAuthenticated {
                 AdminDashboardView()
@@ -61,15 +47,8 @@ struct ContentView: View {
                     .tabItem {
                         Label("Admin", systemImage: "lock.shield")
                     }
-                    .tag(4)
+                    .tag(5)
             }
-            
-            MoreView()
-                .environmentObject(authService)
-                .tabItem {
-                    Label("More", systemImage: "ellipsis")
-                }
-                .tag(5)
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -77,7 +56,7 @@ struct ContentView: View {
         }
         .onChange(of: authService.isAuthenticated) { _, isAuthenticated in
             if isAuthenticated {
-                selectedTab = 4
+                selectedTab = 5
             }
         }
     }
@@ -299,259 +278,26 @@ struct ServiceTimeRow: View {
     }
 }
 
-struct EventsView: View {
-    @StateObject private var viewModel = EventsViewModel()
-    
-    var body: some View {
-        ZStack {
-            if viewModel.isLoading {
-                ProgressView()
-                    .scaleEffect(1.5)
-            } else if let error = viewModel.error {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(.orange)
-                    Text("Error loading events")
-                        .font(.headline)
-                    Text(error.localizedDescription)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    Button("Try Again") {
-                        Task {
-                            await viewModel.loadEvents()
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                }
-            } else if viewModel.events.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "calendar.badge.exclamationmark")
-                        .font(.system(size: 50))
-                        .foregroundColor(.secondary)
-                    Text("No Upcoming Events")
-                        .font(.headline)
-                    Text("Check back later for new events")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(viewModel.events) { event in
-                            EventCard(event: event)
-                                .padding(.horizontal)
-                        }
-                    }
-                }
-                .refreshable {
-                    Task {
-                        await viewModel.loadEvents()
-                    }
-                }
-            }
-        }
-        .navigationTitle("Events")
-        .onAppear {
-            Task {
-                await viewModel.loadEvents()
-            }
-        }
-    }
-}
-
-struct EventCard: View {
-    let event: Event
-    @State private var showingCalendarAlert = false
-    @State private var calendarError: Error?
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Event Title and Recurring Badge
-            HStack {
-                Text(event.title)
-                    .font(.custom("Montserrat-SemiBold", size: 18))
-                    .foregroundColor(.primary)
-                
-                if event.recurrenceType != .none {
-                    Image(systemName: "repeat")
-                        .foregroundColor(Color(hex: "fb8b23"))
-                        .font(.system(size: 14))
-                }
-                
-                Spacer()
-                
-                // Add to Calendar Button
-                Button(action: {
-                    event.addToCalendar { success, error in
-                        DispatchQueue.main.async {
-                            if success {
-                                showingCalendarAlert = true
-                            } else {
-                                calendarError = error
-                                showingCalendarAlert = true
-                            }
-                        }
-                    }
-                }) {
-                    Image(systemName: "calendar.badge.plus")
-                        .foregroundColor(Color(hex: "fb8b23"))
-                        .font(.system(size: 18))
-                }
-            }
-            
-            // Date and Time
-            HStack {
-                Image(systemName: "calendar")
-                    .foregroundColor(Color(hex: "fb8b23"))
-                Text(event.formattedDateTime)
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundColor(.secondary)
-            }
-            
-            // Location if available
-            if event.hasLocation || event.hasLocationUrl {
-                if event.hasLocationUrl {
-                    Button(action: {
-                        event.openInMaps()
-                    }) {
-                        LocationRow(location: event.displayLocation, isClickable: true)
-                    }
-                } else {
-                    LocationRow(location: event.displayLocation, isClickable: false)
-                }
-            }
-            
-            // Description
-            if !event.description.isEmpty {
-                Text(event.description)
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
-            }
-            
-            // Registration Button if required
-            if event.registrationRequired {
-                Button(action: {
-                    // Handle registration
-                    if let url = event.registrationURL,
-                       let registrationURL = URL(string: url) {
-                        UIApplication.shared.open(registrationURL)
-                    }
-                }) {
-                    Text("Register")
-                        .font(.custom("Montserrat-SemiBold", size: 14))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: "fb8b23"))
-                        .cornerRadius(8)
-                }
-            }
-        }
-        .padding()
-        .background(Color(UIColor.secondarySystemBackground))
-        .cornerRadius(12)
-        .shadow(radius: 2)
-        .padding(.horizontal)
-        .padding(.vertical, 6)
-        .onTapGesture {
-            // Handle tap gesture
-        }
-        .alert(isPresented: $showingCalendarAlert) {
-            if let error = calendarError {
-                Alert(
-                    title: Text("Error"),
-                    message: Text(error.localizedDescription),
-                    dismissButton: .default(Text("OK"))
-                )
-            } else {
-                Alert(
-                    title: Text("Success"),
-                    message: Text("Event has been added to your calendar."),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
-        }
-    }
-}
-
-struct LocationRow: View {
-    let location: String
-    var isClickable: Bool = true
-    
-    var body: some View {
-        Button(action: {
-            if isClickable {
-                if let url = URL(string: "https://maps.apple.com/?address=9+Hartford+Turnpike,+Tolland,+CT+06084") {
-                    UIApplication.shared.open(url)
-                }
-            }
-        }) {
-            HStack {
-                Image(systemName: "mappin.circle.fill")
-                    .foregroundColor(isClickable ? .accentColor : .secondary)
-                Text(location)
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundColor(isClickable ? .primary : .secondary)
-                    .multilineTextAlignment(.leading)
-                Spacer()
-                if isClickable {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.accentColor)
-                }
-            }
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isClickable ? Color(hex: "fb8b23").opacity(0.1) : Color(.systemGray6))
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .disabled(!isClickable)
-    }
-}
-
 struct MessagesView: View {
     @StateObject private var viewModel = MessagesViewModel()
     @State private var selectedMessage: Message?
+    @State private var hasInitiallyLoaded = false
     
     var body: some View {
         NavigationStack {
             ZStack {
-                if viewModel.isLoading {
+                if viewModel.isLoading && !hasInitiallyLoaded {
                     ProgressView()
                         .scaleEffect(1.5)
                 } else if let error = viewModel.error {
                     VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle.fill")
+                        Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 50))
-                            .foregroundColor(.orange)
-                        Text("Error loading messages")
-                            .font(.headline)
+                            .foregroundColor(.yellow)
                         Text(error.localizedDescription)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .font(.custom("Montserrat-Regular", size: 16))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
-                        Button("Try Again") {
-                            viewModel.refreshContent()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                } else if viewModel.messages.isEmpty && viewModel.livestream == nil {
-                    VStack(spacing: 16) {
-                        Image(systemName: "video.slash")
-                            .font(.system(size: 50))
-                            .foregroundColor(.secondary)
-                        Text("No Messages Available")
-                            .font(.headline)
-                        Text("Check back later for new messages")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
                     }
                 } else {
                     ScrollView {
@@ -561,17 +307,21 @@ struct MessagesView: View {
                                     .padding(.horizontal)
                             }
                             
-                            ForEach(viewModel.messages) { message in
-                                MessageCard(message: message, selectedMessage: $selectedMessage)
-                                    .padding(.horizontal)
-                            }
-                            
-                            // Media Links Row
                             VStack(spacing: 12) {
                                 Text("Listen & Watch")
                                     .font(.custom("Montserrat-SemiBold", size: 16))
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal)
                                 
+                                ForEach(viewModel.messages) { message in
+                                    MessageCard(message: message, selectedMessage: $selectedMessage)
+                                        .padding(.horizontal)
+                                }
+                            }
+                            .padding(.vertical)
+                            
+                            // Media Links Row
+                            VStack(spacing: 12) {
                                 HStack(spacing: 8) {
                                     // YouTube Channel Link Button
                                     Link(destination: URL(string: YouTubeService.channelUrl)!) {
@@ -595,8 +345,8 @@ struct MessagesView: View {
                                     // Spotify Channel Link Button
                                     Button {
                                         AppAvailabilityService.shared.openApp(
-                                            urlScheme: AppAvailabilityService.schemes.spotify,
-                                            fallbackURL: "https://open.spotify.com/show/2ARQaUBaGnVTiF9syrKDvO"
+                                            urlScheme: AppAvailabilityService.Schemes.spotify,
+                                            fallbackURL: AppAvailabilityService.AppStoreURLs.spotify
                                         )
                                     } label: {
                                         HStack(spacing: 4) {
@@ -619,8 +369,8 @@ struct MessagesView: View {
                                     // Apple Podcasts Link Button
                                     Button {
                                         AppAvailabilityService.shared.openApp(
-                                            urlScheme: AppAvailabilityService.schemes.podcasts,
-                                            fallbackURL: "https://podcasts.apple.com/us/podcast/rockville-tolland-sda-church/id1234567890"
+                                            urlScheme: AppAvailabilityService.Schemes.podcasts,
+                                            fallbackURL: AppAvailabilityService.AppStoreURLs.podcasts
                                         )
                                     } label: {
                                         HStack(spacing: 4) {
@@ -643,33 +393,39 @@ struct MessagesView: View {
                             }
                             .padding(.horizontal)
                         }
-                        .padding(.vertical)
                     }
                     .refreshable {
-                        viewModel.refreshContent()
+                        selectedMessage = nil
+                        await viewModel.refreshContent()
+                        if !hasInitiallyLoaded {
+                            hasInitiallyLoaded = true
+                        }
                     }
                 }
             }
             .navigationTitle("Messages")
+            .onAppear {
+                Task {
+                    await viewModel.refreshContent()
+                    hasInitiallyLoaded = true
+                }
+            }
         }
     }
+}
+
+struct YouTubePlayerView: View {
+    let videoId: String
     
-    private func extractVideoId(from url: String) -> String? {
-        guard let url = URL(string: url) else { return nil }
-        
-        if url.host == "youtu.be" {
-            return url.lastPathComponent
-        }
-        
-        if url.host?.contains("youtube.com") == true,
-           let videoId = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?
-            .first(where: { $0.name == "v" })?
-            .value {
-            return videoId
-        }
-        
-        return nil
+    var body: some View {
+        YouTubePlayerKit.YouTubePlayerView(
+            YouTubePlayer(
+                source: .video(id: videoId),
+                configuration: .init(
+                    autoPlay: true
+                )
+            )
+        )
     }
 }
 
@@ -678,94 +434,42 @@ struct MessageCard: View {
     @Binding var selectedMessage: Message?
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Video Player Section
-            if selectedMessage?.id == message.id,
-               let videoId = extractVideoId(from: message.videoUrl) {
-                YouTubePlayerSwiftUIView(player: YouTubePlayer(
-                    source: .video(id: videoId),
-                    configuration: .init(
-                        autoPlay: true
-                    )
-                ))
-                .frame(height: 250)
-                .cornerRadius(12)
-            } else {
-                // Thumbnail Section
-                if let thumbnailUrl = message.thumbnailUrl,
-                   let url = URL(string: thumbnailUrl) {
-                    AsyncImage(url: url) { image in
+        VStack(alignment: .leading, spacing: 12) {
+            if let videoId = message.videoUrl.extractYouTubeVideoId() {
+                if selectedMessage?.id == message.id {
+                    YouTubePlayerView(videoId: videoId)
+                        .frame(height: 200)
+                        .cornerRadius(8)
+                } else {
+                    AsyncImage(url: URL(string: message.thumbnailUrl ?? "")) { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        Rectangle()
-                            .foregroundColor(.gray.opacity(0.3))
+                        Color.gray.opacity(0.3)
                     }
                     .frame(height: 200)
-                    .clipped()
+                    .cornerRadius(8)
+                    .onTapGesture {
+                        selectedMessage = message
+                    }
                 }
             }
             
-            // Info Section
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    if message.isLiveStream {
-                        Text(message.liveBroadcastStatus.uppercased())
-                            .font(.custom("Montserrat-Bold", size: 12))
-                            .foregroundColor(message.liveBroadcastStatus == "live" ? .red : .orange)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(message.liveBroadcastStatus == "live" ? Color.red.opacity(0.2) : Color.orange.opacity(0.2))
-                            .cornerRadius(4)
-                    }
-                    
-                    Spacer()
-                    
-                    if !message.isLiveStream {
-                        Text(message.formattedDuration)
-                            .font(.custom("Montserrat-Regular", size: 14))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
+            VStack(alignment: .leading, spacing: 4) {
                 Text(message.title)
                     .font(.custom("Montserrat-SemiBold", size: 16))
                     .foregroundColor(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                
+                Text(message.speaker)
+                    .font(.custom("Montserrat-Regular", size: 14))
+                    .foregroundColor(.secondary)
             }
-            .padding()
-            .background(Color(UIColor.systemBackground))
         }
-        .background(Color(UIColor.secondarySystemBackground))
+        .padding()
+        .background(Color(.systemBackground))
         .cornerRadius(12)
-        .shadow(radius: 5)
-        .padding(.horizontal)
-        .padding(.vertical, 6)
-        .onTapGesture {
-            if selectedMessage?.id == message.id {
-                selectedMessage = nil
-            } else {
-                selectedMessage = message
-            }
-        }
-    }
-    
-    private func extractVideoId(from url: String) -> String? {
-        guard let url = URL(string: url) else { return nil }
-        
-        if let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems {
-            return queryItems.first(where: { $0.name == "v" })?.value
-        }
-        
-        // If no query items, try to get it from the path
-        let pathComponents = url.pathComponents
-        if pathComponents.count > 1 {
-            return pathComponents.last
-        }
-        
-        return nil
+        .shadow(radius: 2)
     }
 }
 
@@ -798,52 +502,21 @@ struct MoreView: View {
                 }
                 
                 Section("Resources") {
-                    Button {
-                        AppAvailabilityService.shared.openApp(
-                            urlScheme: AppAvailabilityService.schemes.bible,
-                            fallbackURL: AppAvailabilityService.appStoreURLs.bible
-                        )
-                    } label: {
+                    Link(destination: URL(string: AppAvailabilityService.Schemes.bible)!) {
                         Label("Bible", systemImage: "book.fill")
                     }
                     
-                    Button {
-                        AppAvailabilityService.shared.openApp(
-                            urlScheme: AppAvailabilityService.schemes.sabbathSchool,
-                            fallbackURL: AppAvailabilityService.appStoreURLs.sabbathSchool
-                        )
-                    } label: {
+                    Link(destination: URL(string: AppAvailabilityService.Schemes.sabbathSchool)!) {
                         Label("Sabbath School", systemImage: "book.fill")
                     }
                     
-                    Button {
-                        AppAvailabilityService.shared.openApp(
-                            urlScheme: AppAvailabilityService.schemes.egwWritings,
-                            fallbackURL: AppAvailabilityService.appStoreURLs.egwWritings
-                        )
-                    } label: {
+                    Link(destination: URL(string: AppAvailabilityService.Schemes.egw)!) {
                         Label("EGW Writings", systemImage: "book.closed.fill")
                     }
                     
-                    Button {
-                        AppAvailabilityService.shared.openApp(
-                            urlScheme: AppAvailabilityService.schemes.hymnal,
-                            fallbackURL: AppAvailabilityService.appStoreURLs.hymnal
-                        )
-                    } label: {
-                        HStack {
-                            Label("SDA Hymnal", systemImage: "music.note")
-                            Spacer()
-                            Text("Coming Soon")
-                                .font(.caption2)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.accentColor)
-                                .clipShape(Capsule())
-                        }
+                    Link(destination: URL(string: AppAvailabilityService.Schemes.hymnal)!) {
+                        Label("SDA Hymnal", systemImage: "music.note")
                     }
-                    .disabled(true)
                 }
                 
                 Section("Connect") {
@@ -867,11 +540,11 @@ struct MoreView: View {
                     
                     Button {
                         AppAvailabilityService.shared.openApp(
-                            urlScheme: AppAvailabilityService.schemes.tiktok,
-                            fallbackURL: "https://www.tiktok.com/@rockvilletollandsda"
+                            urlScheme: AppAvailabilityService.Schemes.tiktok,
+                            fallbackURL: AppAvailabilityService.AppStoreURLs.tiktok
                         )
                     } label: {
-                        Label("TikTok", systemImage: "play.square")
+                        Label("TikTok", systemImage: "play.rectangle.fill")
                     }
                     
                     Link(destination: URL(string: "https://maps.apple.com/?address=9+Hartford+Turnpike,+Tolland,+CT+06084")!) {
@@ -927,18 +600,6 @@ struct SafariView: UIViewControllerRepresentable {
     }
 }
 
-struct YouTubePlayerSwiftUIView: UIViewControllerRepresentable {
-    let player: YouTubePlayer
-    
-    func makeUIViewController(context: Context) -> YouTubePlayerViewController {
-        YouTubePlayerViewController(player: player)
-    }
-    
-    func updateUIViewController(_ uiViewController: YouTubePlayerViewController, context: Context) {
-        // Update the view controller if needed
-    }
-}
-
 extension UIApplication {
     var scrollView: UIScrollView? {
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -951,6 +612,26 @@ extension UIApplication {
 
 enum NavigationDestination {
     case prayerRequest
+}
+
+extension String {
+    func extractYouTubeVideoId() -> String? {
+        guard let url = URL(string: self) else { return nil }
+        
+        if url.host == "youtu.be" {
+            return url.lastPathComponent
+        }
+        
+        if url.host?.contains("youtube.com") == true,
+           let videoId = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first(where: { $0.name == "v" })?
+            .value {
+            return videoId
+        }
+        
+        return nil
+    }
 }
 
 #Preview {
