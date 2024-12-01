@@ -119,3 +119,27 @@ The following files contain sensitive information and are **not** committed to g
 - Use Firebase Remote Config for sensitive values
 - Keep configuration files in `.gitignore`
 - Follow platform security best practices
+
+## License
+
+This project uses a dual licensing approach:
+
+### Application Source Code
+The application source code is licensed under the GNU General Public License v3 (GPLv3). 
+See the [LICENSE](LICENSE) file for details.
+
+### Church Content
+The content accessible through this application (including sermons, events, media, and other 
+church-specific materials) is copyrighted by the Rockville-Tolland Seventh-day Adventist Church. 
+All rights reserved. These materials are not covered by the GPL license and require proper 
+authorization for use.
+
+## Contact
+
+For technical inquiries and contributions, please open an issue or pull request.
+
+For permissions regarding church content usage, contact:
+Rockville-Tolland Seventh-day Adventist Church
+Administrative Office
+[Church Address]
+[Contact Information]
