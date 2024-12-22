@@ -1,0 +1,9 @@
+<key>NSBonjourServices</key>
+<array>
+    <string>_airplay._tcp</string>
+    <string>_raop._tcp</string>
+</array>
+<key>NSLocalNetworkUsageDescription</key>
+<string>RTSDA needs access to your local network to discover and connect to AirPlay devices.</string>
+<key>Privacy - Local Network Usage Description</key>
+<string>RTSDA needs access to your local network to discover and connect to AirPlay devices.</string> 
