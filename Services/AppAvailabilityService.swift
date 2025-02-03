@@ -25,7 +25,7 @@ class AppAvailabilityService {
         static let sabbathSchool = "https://apps.apple.com/us/app/sabbath-school/id895272167"
         static let egwWritings = "https://apps.apple.com/us/app/egw-writings-2/id994076136"
         static let egwWritingsWeb = "https://m.egwwritings.org/en/folders/2"
-        static let hymnal = "https://apps.apple.com/us/app/hymnal-adventist/id6446034427"
+        static let hymnal = "https://apps.apple.com/us/app/hymnal-adventist/id6738877733"
         static let bible = "https://apps.apple.com/us/app/bible/id282935706"
         static let facebook = "https://apps.apple.com/us/app/facebook/id284882215"
         static let tiktok = "https://apps.apple.com/us/app/tiktok/id835599320"
