@@ -82,8 +82,8 @@ struct HomeView: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: geometry.size.width)
-                                .frame(height: horizontalSizeClass == .compact ? 350 : geometry.size.height * 0.35)
-                                .offset(y: 30)
+                                .frame(height: horizontalSizeClass == .compact ? 350 : geometry.size.height * 0.45)
+                                .offset(y: horizontalSizeClass == .compact ? 30 : 0)
                                 .clipped()
                                 .overlay(
                                     LinearGradient(
@@ -103,12 +103,22 @@ struct HomeView: View {
                             }
                             .padding()
                         } else {
-                            HStack(alignment: .top, spacing: 16) {
-                                quickLinksSection
-                                    .frame(maxWidth: geometry.size.width * 0.4)
+                            HStack(alignment: .top, spacing: 32) {
+                                VStack(alignment: .leading, spacing: 24) {
+                                    quickLinksSection
+                                        .frame(maxWidth: geometry.size.width * 0.35)
+                                    
+                                    Image("church_logo")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: geometry.size.width * 0.25)
+                                        .padding(.top, 24)
+                                }
+                                
                                 aboutUsSection
+                                    .padding(.top, 8)
                             }
-                            .padding()
+                            .padding(32)
                         }
                     }
                     .frame(minHeight: geometry.size.height)
@@ -235,19 +245,20 @@ struct QuickLinkButton: View {
     let icon: String
     var color: Color = Color(hex: "fb8b23")
     var action: () -> Void
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     var body: some View {
         VStack {
             Image(systemName: icon)
-                .font(.system(size: 24))
+                .font(.system(size: horizontalSizeClass == .compact ? 24 : 32))
                 .foregroundColor(color)
             Text(title)
-                .font(.custom("Montserrat-Medium", size: 14))
+                .font(.custom("Montserrat-Medium", size: horizontalSizeClass == .compact ? 14 : 16))
                 .foregroundColor(.primary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding()
+        .padding(horizontalSizeClass == .compact ? 16 : 24)
         .background(Color(UIColor.secondarySystemBackground))
         .cornerRadius(12)
         .onTapGesture(perform: action)
@@ -258,24 +269,25 @@ struct ServiceTimeRow: View {
     let day: String
     let time: String
     let name: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     var body: some View {
         HStack {
             VStack(alignment: .leading) {
                 Text(day)
-                    .font(.custom("Montserrat-Regular", size: 14))
+                    .font(.custom("Montserrat-Regular", size: horizontalSizeClass == .compact ? 14 : 16))
                     .foregroundColor(.secondary)
                 Text(time)
-                    .font(.custom("Montserrat-SemiBold", size: 16))
+                    .font(.custom("Montserrat-SemiBold", size: horizontalSizeClass == .compact ? 16 : 18))
             }
             
             Spacer()
             
             Text(name)
-                .font(.custom("Montserrat-Regular", size: 16))
+                .font(.custom("Montserrat-Regular", size: horizontalSizeClass == .compact ? 16 : 18))
                 .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, horizontalSizeClass == .compact ? 4 : 8)
     }
 }
 
