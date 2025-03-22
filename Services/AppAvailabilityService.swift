@@ -38,6 +38,7 @@ class AppAvailabilityService {
         checkAvailability(urlScheme: Schemes.sabbathSchool)
         checkAvailability(urlScheme: Schemes.egw)
         checkAvailability(urlScheme: Schemes.bible)
+        checkAvailability(urlScheme: Schemes.hymnal)
         checkAvailability(urlScheme: Schemes.facebook)
         checkAvailability(urlScheme: Schemes.tiktok)
         checkAvailability(urlScheme: Schemes.spotify)
@@ -87,34 +88,67 @@ class AppAvailabilityService {
         }
     }
     
-    private func handleFallback(urlScheme: String, fallbackURL: String) {
-        // Special handling for Sabbath School app
-        if urlScheme == Schemes.sabbathSchool {
-            if let altUrl = URL(string: Schemes.sabbathSchoolAlt) {
-                print("✅ Opening Sabbath School web app: \(altUrl)")
-                UIApplication.shared.open(altUrl)
-                return
-            }
-        }
-        // Special handling for EGW Writings app
-        else if urlScheme == Schemes.egw {
-            if let webUrl = URL(string: Schemes.egwWritingsWeb) {
-                print("✅ Opening EGW mobile web URL: \(webUrl)")
-                UIApplication.shared.open(webUrl)
-                return
-            }
-        }
+    // Open a specific hymn by number
+    func openHymnByNumber(_ hymnNumber: Int) {
+        // Format: adventisthymnarium://hymn?number=123
+        let hymnalScheme = "\(Schemes.hymnal)hymn?number=\(hymnNumber)"
+        print("🎵 Attempting to open hymn #\(hymnNumber): \(hymnalScheme)")
         
-        // Try the fallback URL
+        if let hymnUrl = URL(string: hymnalScheme) {
+            if UIApplication.shared.canOpenURL(hymnUrl) {
+                UIApplication.shared.open(hymnUrl) { success in
+                    if !success {
+                        print("❌ Failed to open hymn #\(hymnNumber)")
+                        self.openApp(urlScheme: Schemes.hymnal, fallbackURL: AppStoreURLs.hymnal)
+                    }
+                }
+            } else {
+                print("❌ Cannot open hymn #\(hymnNumber)")
+                openApp(urlScheme: Schemes.hymnal, fallbackURL: AppStoreURLs.hymnal)
+            }
+        } else {
+            print("⚠️ Failed to create URL for hymn #\(hymnNumber)")
+            openApp(urlScheme: Schemes.hymnal, fallbackURL: AppStoreURLs.hymnal)
+        }
+    }
+    
+    private func handleFallback(urlScheme: String, fallbackURL: String) {
+        // Try the App Store URL first
         if let fallback = URL(string: fallbackURL) {
-            print("⬇️ Falling back to: \(fallback)")
+            print("⬇️ Opening App Store: \(fallback)")
             UIApplication.shared.open(fallback) { success in
                 if !success {
-                    print("❌ Failed to open fallback URL: \(fallback)")
+                    print("❌ Failed to open App Store URL: \(fallback)")
+                    
+                    // Handle web fallbacks if App Store fails
+                    if urlScheme == Schemes.egw {
+                        if let webUrl = URL(string: Schemes.egwWritingsWeb) {
+                            print("✅ Opening EGW mobile web URL: \(webUrl)")
+                            UIApplication.shared.open(webUrl)
+                        }
+                    } else if urlScheme == Schemes.sabbathSchool {
+                        if let altUrl = URL(string: Schemes.sabbathSchoolAlt) {
+                            print("✅ Opening Sabbath School web app: \(altUrl)")
+                            UIApplication.shared.open(altUrl)
+                        }
+                    }
                 }
             }
         } else {
-            print("❌ Failed to create fallback URL: \(fallbackURL)")
+            print("❌ Failed to create App Store URL: \(fallbackURL)")
+            
+            // Handle web fallbacks if App Store URL is invalid
+            if urlScheme == Schemes.egw {
+                if let webUrl = URL(string: Schemes.egwWritingsWeb) {
+                    print("✅ Opening EGW mobile web URL: \(webUrl)")
+                    UIApplication.shared.open(webUrl)
+                }
+            } else if urlScheme == Schemes.sabbathSchool {
+                if let altUrl = URL(string: Schemes.sabbathSchoolAlt) {
+                    print("✅ Opening Sabbath School web app: \(altUrl)")
+                    UIApplication.shared.open(altUrl)
+                }
+            }
         }
     }
 }

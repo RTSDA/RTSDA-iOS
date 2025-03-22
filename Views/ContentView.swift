@@ -462,19 +462,39 @@ struct MoreView: View {
         NavigationStack {
             List {
                 Section("Resources") {
-                    Link(destination: URL(string: AppAvailabilityService.Schemes.bible)!) {
+                    Button {
+                        AppAvailabilityService.shared.openApp(
+                            urlScheme: AppAvailabilityService.Schemes.bible,
+                            fallbackURL: AppAvailabilityService.AppStoreURLs.bible
+                        )
+                    } label: {
                         Label("Bible", systemImage: "book.fill")
                     }
                     
-                    Link(destination: URL(string: AppAvailabilityService.Schemes.sabbathSchool)!) {
+                    Button {
+                        AppAvailabilityService.shared.openApp(
+                            urlScheme: AppAvailabilityService.Schemes.sabbathSchool,
+                            fallbackURL: AppAvailabilityService.AppStoreURLs.sabbathSchool
+                        )
+                    } label: {
                         Label("Sabbath School", systemImage: "book.fill")
                     }
                     
-                    Link(destination: URL(string: AppAvailabilityService.Schemes.egw)!) {
+                    Button {
+                        AppAvailabilityService.shared.openApp(
+                            urlScheme: AppAvailabilityService.Schemes.egw,
+                            fallbackURL: AppAvailabilityService.AppStoreURLs.egwWritings
+                        )
+                    } label: {
                         Label("EGW Writings", systemImage: "book.closed.fill")
                     }
                     
-                    Link(destination: URL(string: AppAvailabilityService.Schemes.hymnal)!) {
+                    Button {
+                        AppAvailabilityService.shared.openApp(
+                            urlScheme: AppAvailabilityService.Schemes.hymnal,
+                            fallbackURL: AppAvailabilityService.AppStoreURLs.hymnal
+                        )
+                    } label: {
                         Label("SDA Hymnal", systemImage: "music.note")
                     }
                 }

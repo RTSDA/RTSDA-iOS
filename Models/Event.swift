@@ -298,17 +298,20 @@ struct Event: Identifiable, Codable {
         let formatters = [
             { () -> DateFormatter in
                 let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSZ" // PocketBase format
+                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSZ"
+                formatter.timeZone = TimeZone(identifier: "America/New_York")! // Eastern Time
                 return formatter
             }(),
             { () -> ISO8601DateFormatter in
                 let formatter = ISO8601DateFormatter()
                 formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                formatter.timeZone = TimeZone(identifier: "America/New_York")! // Eastern Time
                 return formatter
             }(),
             { () -> ISO8601DateFormatter in
                 let formatter = ISO8601DateFormatter()
                 formatter.formatOptions = [.withInternetDateTime]
+                formatter.timeZone = TimeZone(identifier: "America/New_York")! // Eastern Time
                 return formatter
             }()
         ]

@@ -38,7 +38,126 @@ struct WebViewWithRefresh: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> WKWebView {
+        // Create configuration with script message handler
         let configuration = WKWebViewConfiguration()
+        let contentController = WKUserContentController()
+        
+        // Add hymn detection script
+        let hymnDetectionScript = """
+        function detectAndModifyHymns() {
+            // Regular expression to match patterns like:
+            // - "Hymn XXX" or "Hymnal XXX" with optional quotes and title
+            // - "#XXX" with optional quotes and title
+            // - But NOT match when the number is followed by a colon (e.g., "10:45")
+            // - And NOT match when the number is actually part of a larger number
+            const hymnRegex = /(?:(hymn(?:al)?\\s+#?)|#)(\\d+)(?![\\d:\\.]|\\d*[apm])(?:\\s+["']([^"']+)["'])?/gi;
+            
+            // Extra check before creating links
+            function isValidHymnNumber(text, matchIndex, number) {
+                // Make sure this is not part of a time (e.g., "Hymn 10:45am")
+                const afterMatch = text.substring(matchIndex + number.length);
+                if (afterMatch.match(/^\\s*[:.]\\d|\\d*[apm]/)) {
+                    return false;
+                }
+                return true;
+            }
+            
+            // Function to replace text with a styled link
+            function replaceWithLink(node) {
+                if (node.nodeType === 3) {
+                    // Text node
+                    const content = node.textContent;
+                    if (hymnRegex.test(content)) {
+                        // Reset regex lastIndex
+                        hymnRegex.lastIndex = 0;
+                        
+                        // Create a temporary element
+                        const span = document.createElement('span');
+                        let lastIndex = 0;
+                        let match;
+                        
+                        // Find all matches and replace them with links
+                        while ((match = hymnRegex.exec(content)) !== null) {
+                            // Add text before the match
+                            if (match.index > lastIndex) {
+                                span.appendChild(document.createTextNode(content.substring(lastIndex, match.index)));
+                            }
+                            
+                            // Get the hymn number
+                            const hymnNumber = match[2];
+                            
+                            // Extra validation to ensure this isn't part of a time
+                            const prefixLength = match[0].length - hymnNumber.length;
+                            const numberStartIndex = match.index + prefixLength;
+                            
+                            if (!isValidHymnNumber(content, numberStartIndex, hymnNumber)) {
+                                // Just add the original text if it's not a valid hymn reference
+                                span.appendChild(document.createTextNode(match[0]));
+                            } else {
+                                // Create link element for valid hymn numbers
+                                const hymnTitle = match[3] ? ': ' + match[3] : '';
+                                const link = document.createElement('a');
+                                link.textContent = match[0];
+                                link.href = 'javascript:void(0)';
+                                link.className = 'hymn-link';
+                                link.setAttribute('data-hymn-number', hymnNumber);
+                                link.style.color = '#0070c9';
+                                link.style.textDecoration = 'underline';
+                                link.style.fontWeight = 'bold';
+                                link.onclick = function(e) {
+                                    e.preventDefault();
+                                    window.webkit.messageHandlers.hymnHandler.postMessage({ number: hymnNumber });
+                                };
+                                
+                                span.appendChild(link);
+                            }
+                            
+                            lastIndex = match.index + match[0].length;
+                        }
+                        
+                        // Add any remaining text
+                        if (lastIndex < content.length) {
+                            span.appendChild(document.createTextNode(content.substring(lastIndex)));
+                        }
+                        
+                        // Replace the original node with our span containing links
+                        if (span.childNodes.length > 0) {
+                            node.parentNode.replaceChild(span, node);
+                        }
+                    }
+                } else if (node.nodeType === 1 && node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.nodeName !== 'A') {
+                    // Element node, not a script or style tag or already a link
+                    Array.from(node.childNodes).forEach(child => replaceWithLink(child));
+                }
+            }
+            
+            // Process the document body
+            replaceWithLink(document.body);
+            
+            console.log('Hymn detection script executed');
+        }
+        
+        // Call the function after page has loaded and whenever content changes
+        detectAndModifyHymns();
+        
+        // Use a MutationObserver to detect DOM changes and reapply the links
+        const observer = new MutationObserver(mutations => {
+            detectAndModifyHymns();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        """
+        
+        let userScript = WKUserScript(
+            source: hymnDetectionScript,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
+        
+        contentController.addUserScript(userScript)
+        contentController.add(context.coordinator, name: "hymnHandler")
+        configuration.userContentController = contentController
+        
+        // Create the web view with our configuration
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         
@@ -70,11 +189,26 @@ struct WebViewWithRefresh: UIViewRepresentable {
         // No updates needed
     }
     
-    class Coordinator: NSObject, WKNavigationDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var parent: WebViewWithRefresh
         
         init(_ parent: WebViewWithRefresh) {
             self.parent = parent
+        }
+        
+        // Handle messages from JavaScript
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "hymnHandler" {
+                guard let body = message.body as? [String: Any],
+                      let hymnNumberString = body["number"] as? String,
+                      let hymnNumber = Int(hymnNumberString) else {
+                    print("❌ Invalid hymn number received")
+                    return
+                }
+                
+                print("🎵 Opening hymn #\(hymnNumber)")
+                AppAvailabilityService.shared.openHymnByNumber(hymnNumber)
+            }
         }
         
         @objc func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
@@ -161,6 +295,16 @@ struct WebViewWithRefresh: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             parent.isLoading = false
             webView.scrollView.refreshControl?.endRefreshing()
+            
+            // Execute the hymn detection script again after the page loads
+            let rerunScript = "detectAndModifyHymns();"
+            webView.evaluateJavaScript(rerunScript) { _, error in
+                if let error = error {
+                    print("❌ Error running hymn detection script: \(error.localizedDescription)")
+                } else {
+                    print("✅ Hymn detection script executed after page load")
+                }
+            }
         }
         
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

@@ -2,49 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-		<string>remote-notification</string>
-	</array>
+	<key>AVInitialRouteSharingPolicy</key>
+	<string>LongFormVideo</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>org.rockvilletollandsda.rtsda.refresh</string>
 		<string>org.rockvilletollandsda.rtsda.processing</string>
-	</array>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Montserrat-Regular.ttf</string>
-		<string>Montserrat-SemiBold.ttf</string>
-		<string>Lora-Italic.ttf</string>
-	</array>
-	<key>NSCalendarsUsageDescription</key>
-	<string>We need access to your calendar to add church events that you're interested in attending.</string>
-	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
-	<string>We can add church events to your calendar without viewing your existing events.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Your location is used to provide directions to church events and activities.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Your location is used to provide directions to church events and activities.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>The camera can be used to scan QR codes for event registration or take photos during church events.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Access to your photo library allows you to share photos from church events and save event QR codes.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>The microphone is used for live stream audio and voice interactions during online events.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Access to contacts allows you to easily share church events with friends and family.</string>
-	<key>NSRemindersUsageDescription</key>
-	<string>Reminders can be set for upcoming church events and activities you're interested in.</string>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>Access to media library is used for hymns and worship music during services.</string>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
@@ -58,6 +21,19 @@
 		<string>tiktok</string>
 		<string>spotify</string>
 	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>We can add church events to your calendar without viewing your existing events.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Montserrat-Regular.ttf</string>
+		<string>Montserrat-SemiBold.ttf</string>
+		<string>Lora-Italic.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -65,12 +41,23 @@
 		<key>UISceneConfigurations</key>
 		<dict/>
 	</dict>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
-	<key>AVInitialRouteSharingPolicy</key>
-	<string>LongFormVideo</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

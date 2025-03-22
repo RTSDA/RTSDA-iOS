@@ -11,6 +11,15 @@ import SwiftUI
 struct RTSDAApp: App {
     @StateObject private var configService = ConfigService.shared
     
+    init() {
+        // Enable standard orientations (portrait and landscape)
+        if #available(iOS 16.0, *) {
+            UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.forEach { windowScene in
+                windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: [.portrait, .landscapeLeft, .landscapeRight]))
+            }
+        }
+    }
+    
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
