@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EA019ECF2D978167002FC58F /* BulletinViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA019ECE2D978167002FC58F /* BulletinViewModel.swift */; };
 		EA1C83A42D43EA4900D8B78F /* SermonBrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1C838F2D43EA4900D8B78F /* SermonBrowserViewModel.swift */; };
 		EA1C83A52D43EA4900D8B78F /* RTSDAApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1C83702D43EA4900D8B78F /* RTSDAApp.swift */; };
 		EA1C83A62D43EA4900D8B78F /* EventsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1C838C2D43EA4900D8B78F /* EventsViewModel.swift */; };
@@ -49,6 +50,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		EA019ECE2D978167002FC58F /* BulletinViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulletinViewModel.swift; sourceTree = "<group>"; };
 		EA07AAFA2D43EF78002ACBF8 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		EA1C835B2D43EA4900D8B78F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		EA1C835C2D43EA4900D8B78F /* Color+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extensions.swift"; sourceTree = "<group>"; };
@@ -189,6 +191,7 @@
 				EA1C838D2D43EA4900D8B78F /* MessagesViewModel.swift */,
 				EA1C838E2D43EA4900D8B78F /* OwncastViewModel.swift */,
 				EA1C838F2D43EA4900D8B78F /* SermonBrowserViewModel.swift */,
+				EA019ECE2D978167002FC58F /* BulletinViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -365,6 +368,7 @@
 				EA1C83C22D43EA4900D8B78F /* MessagesViewModel.swift in Sources */,
 				EA1C83C32D43EA4900D8B78F /* OwnCastService.swift in Sources */,
 				EA1C83C42D43EA4900D8B78F /* SplashScreenView.swift in Sources */,
+				EA019ECF2D978167002FC58F /* BulletinViewModel.swift in Sources */,
 				EA1C83C52D43EA4900D8B78F /* JellyfinPlayerView.swift in Sources */,
 				EA1C83C62D43EA4900D8B78F /* AppAvailabilityService.swift in Sources */,
 			);
@@ -527,7 +531,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rtsda.appr;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -570,7 +574,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rtsda.appr;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
