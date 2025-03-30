@@ -241,7 +241,7 @@ struct BulletinDetailView: View {
                 .padding(.horizontal)
                 
                 // PDF Download Button
-                if !bulletin.pdfUrl.isEmpty {
+                if let pdf = bulletin.pdf, !pdf.isEmpty {
                     if let url = URL(string: bulletin.pdfUrl) {
                         Button(action: {
                             UIApplication.shared.open(url)

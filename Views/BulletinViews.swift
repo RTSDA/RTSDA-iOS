@@ -52,47 +52,6 @@ struct BulletinListView: View {
     }
 }
 
-struct BulletinDetailView: View {
-    let bulletin: Bulletin
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(bulletin.date.formatted(date: .long, time: .omitted))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Text(bulletin.title)
-                        .font(.title)
-                        .fontWeight(.bold)
-                }
-                
-                // PDF Download Button
-                if let pdfUrl = bulletin.pdfUrl, let url = URL(string: pdfUrl) {
-                    Link(destination: url) {
-                        Label("Download PDF", systemImage: "doc.fill")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                }
-                
-                // Sections
-                ForEach(bulletin.sections, id: \.title) { section in
-                    BulletinSectionView(section: section)
-                }
-            }
-            .padding()
-        }
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
 struct BulletinSectionView: View {
     let section: BulletinSection
     
@@ -181,7 +140,7 @@ struct BulletinRowView: View {
                 .font(.headline)
                 .lineLimit(2)
             
-            if bulletin.pdfUrl != nil {
+            if let pdf = bulletin.pdf, !pdf.isEmpty {
                 Label("PDF Available", systemImage: "doc.fill")
                     .font(.caption)
                     .foregroundColor(.blue)
