@@ -28,8 +28,14 @@ class BibleService {
                 .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
                 .replacingOccurrences(of: "&quot;", with: "\"")
                 .replacingOccurrences(of: "&#39;", with: "'")
+                .replacingOccurrences(of: "¶\\s*", with: "", options: .regularExpression) // Remove paragraph markers
                 .replacingOccurrences(of: "NUN\\s+\\d+\\s+", with: "", options: .regularExpression) // Remove Hebrew letter prefixes
                 .replacingOccurrences(of: "^[A-Z]+\\s+\\d+\\s+", with: "", options: .regularExpression) // Remove any other letter prefixes
+                .replacingOccurrences(of: "^\\d+\\s*¶?\\s*", with: "", options: .regularExpression) // Remove verse numbers and paragraph markers at start
+                .replacingOccurrences(of: "^\\d+(?=\\w)", with: "", options: .regularExpression) // Remove verse numbers stuck to text
+                .replacingOccurrences(of: "\\s+\\d+\\s+", with: " ", options: .regularExpression) // Remove verse numbers in middle
+                .replacingOccurrences(of: "\\([^)]*\\)", with: "", options: .regularExpression) // Remove parenthetical content
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression) // Normalize spaces
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
@@ -57,6 +63,13 @@ class BibleService {
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
+        // Log raw response
+        if let rawResponse = String(data: data, encoding: .utf8) {
+            print("Raw Bible API Response:")
+            print(rawResponse)
+            print("\n")
+        }
+        
         // Check for successful response
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
@@ -65,6 +78,12 @@ class BibleService {
         
         let decoder = JSONDecoder()
         let apiResponse = try decoder.decode(BibleAPIResponse.self, from: data)
+        
+        // Log cleaned content
+        print("Cleaned verse content:")
+        print(apiResponse.data.cleanContent)
+        print("\nReference:", apiResponse.data.reference)
+        print("\n")
         
         return (verse: apiResponse.data.cleanContent, reference: apiResponse.data.reference)
     }
