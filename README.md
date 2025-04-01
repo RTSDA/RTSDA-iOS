@@ -40,8 +40,33 @@ The official iOS app for the Rockville-Tolland Seventh-day Adventist Church. Thi
 
 ## Version History
 
-- **1.2**: Added digital bulletin system with interactive hymn and Bible verse links
-- **1.1**: Initial release with basic church information and live streaming
+### Version 1.2.1
+- Improved Bible verse formatting in splash screen
+  - Removed verse numbers
+  - Removed paragraph markers
+  - Cleaned up parenthetical content
+  - Better text formatting
+- Enhanced bulletin view formatting
+  - Improved header detection and styling
+  - Better section organization
+  - Consistent spacing and alignment
+  - Cleaner text presentation
+
+### Version 1.2
+- Added Digital Bulletin system
+  - View weekly church bulletins
+  - Interactive hymn links
+  - Bible verse links
+  - PDF download option
+- Updated minimum iOS version to 17.0
+- Updated Xcode version requirement to 15.0
+
+### Version 1.1
+- Initial release
+- Live streaming
+- Sermon library
+- Church information
+- Beliefs reference
 
 ## License
 
