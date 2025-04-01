@@ -353,6 +353,58 @@ struct BulletinContentView: View {
         var segments: [ContentSegment] = []
         let nsLine = cleanedLine as NSString
         
+        // Check for section headers with specific patterns
+        let headerPatterns = [
+            // Sabbath School headers
+            #"^(Sabbath School):?"#,
+            #"^(Song Service):?"#,
+            #"^(Leadership):?"#,
+            #"^(Lesson Study):?"#,
+            #"^(Mission Story):?"#,
+            #"^(Welcome):?"#,
+            #"^(Opening Song):?"#,
+            #"^(Opening Prayer):?"#,
+            #"^(Mission Spotlight):?"#,
+            #"^(Bible Study):?"#,
+            #"^(Closing Song):?"#,
+            #"^(Closing Prayer):?"#,
+            // Divine Worship headers
+            #"^(Announcements):?"#,
+            #"^(Call To Worship):?"#,
+            #"^(Opening Hymn):?"#,
+            #"^(Prayer & Praises):?"#,
+            #"^(Prayer Song):?"#,
+            #"^(Offering):?"#,
+            #"^(Children's Story):?"#,
+            #"^(Special Music):?"#,
+            #"^(Scripture Reading):?"#,
+            #"^(Sermon):?"#,
+            #"^(Closing Hymn):?"#,
+            #"^(Benediction):?"#
+        ]
+        
+        for pattern in headerPatterns {
+            let headerRegex = try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+            let headerMatches = headerRegex.matches(in: cleanedLine, range: NSRange(location: 0, length: nsLine.length))
+            
+            if !headerMatches.isEmpty {
+                // Add the header
+                let headerText = nsLine.substring(with: headerMatches[0].range(at: 1))
+                    .trimmingCharacters(in: .whitespaces)
+                segments.append((id: UUID(), text: headerText, type: .sectionHeader, reference: nil))
+                
+                // Add any remaining text after the header
+                if headerMatches[0].range.location + headerMatches[0].range.length < nsLine.length {
+                    let remainingText = nsLine.substring(from: headerMatches[0].range.location + headerMatches[0].range.length)
+                        .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ":")))
+                    if !remainingText.isEmpty {
+                        segments.append((id: UUID(), text: remainingText, type: .text, reference: nil))
+                    }
+                }
+                return segments
+            }
+        }
+        
         // Match hymn numbers with surrounding text
         let hymnPattern = #"(?:Hymn(?:al)?\s+(?:#\s*)?|#\s*)(\d+)(?:\s+["""]([^"""]*)[""])?.*"#
         let hymnRegex = try! NSRegularExpression(pattern: hymnPattern, options: [.caseInsensitive])
@@ -485,11 +537,11 @@ struct BulletinContentView: View {
                 if !content.isEmpty {
                     VStack(alignment: .center, spacing: 16) {
                         Text(title)
-                            .font(.title2)
+                            .font(.title)
                             .fontWeight(.bold)
                             .foregroundColor(.primary)
                             .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.bottom, 4)
+                            .padding(.bottom, 8)
                         
                         VStack(alignment: .center, spacing: 12) {
                             ForEach(Array(zip(content.components(separatedBy: .newlines).indices, content.components(separatedBy: .newlines))), id: \.0) { index, line in
@@ -545,8 +597,12 @@ struct BulletinContentView: View {
                                             case .sectionHeader:
                                                 Text(segment.text)
                                                     .font(.headline)
-                                                    .multilineTextAlignment(.center)
+                                                    .fontWeight(.semibold)
                                                     .foregroundColor(.primary)
+                                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                                    .padding(.top, 16)
+                                                    .padding(.bottom, 4)
+                                                    .padding(.horizontal, 8)
                                             }
                                         }
                                     }
