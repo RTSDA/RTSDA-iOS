@@ -28,25 +28,23 @@ class BibleService {
                 .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
                 .replacingOccurrences(of: "&quot;", with: "\"")
                 .replacingOccurrences(of: "&#39;", with: "'")
-                .replacingOccurrences(of: "¶\\s*", with: "", options: .regularExpression) // Remove paragraph markers
-                .replacingOccurrences(of: "NUN\\s+\\d+\\s+", with: "", options: .regularExpression) // Remove Hebrew letter prefixes
-                .replacingOccurrences(of: "^[A-Z]+\\s+\\d+\\s+", with: "", options: .regularExpression) // Remove any other letter prefixes
-                .replacingOccurrences(of: "^\\d+\\s*¶?\\s*", with: "", options: .regularExpression) // Remove verse numbers and paragraph markers at start
-                .replacingOccurrences(of: "^\\d+(?=\\w)", with: "", options: .regularExpression) // Remove verse numbers stuck to text
-                .replacingOccurrences(of: "\\s+\\d+\\s+", with: " ", options: .regularExpression) // Remove verse numbers in middle
-                .replacingOccurrences(of: "\\([^)]*\\)", with: "", options: .regularExpression) // Remove parenthetical content
-                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression) // Normalize spaces
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "¶\\s*", with: "", options: .regularExpression)
+                .replacingOccurrences(of: "^\\d+\\s*", with: "", options: .regularExpression) // Remove verse numbers at start
+                .replacingOccurrences(of: "\\((.*?)\\)", with: "$1", options: .regularExpression) // Keep text inside parentheses
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
         }
     }
     
     func getRandomVerse() async throws -> (verse: String, reference: String) {
         // List of popular and uplifting Bible verses
         let references = [
-            "JER.29.11", "PRO.3.5", "PHP.4.13", "JOS.1.9", "PSA.23.1",
-            "ISA.40.31", "MAT.11.28", "ROM.8.28", "PSA.27.1", "PSA.46.10",
-            "JHN.3.16", "ROM.15.13", "2CO.5.7", "DEU.31.6", "ROM.8.31",
-            "1JN.4.19", "PHP.4.6", "MAT.6.33", "HEB.11.1", "PSA.37.4"
+            //"JER.29.11", "PRO.3.5", "PHP.4.13", "JOS.1.9", 
+            "PSA.23.1",
+            //"ISA.40.31", "MAT.11.28", "ROM.8.28", "PSA.27.1", "PSA.46.10",
+            //"JHN.3.16", "ROM.15.13", 
+            "2CO.5.7", //"DEU.31.6", "ROM.8.31",
+            //"1JN.4.19", "PHP.4.6", "MAT.6.33", "HEB.11.1", "PSA.37.4"
         ]
         
         // Randomly select a reference
