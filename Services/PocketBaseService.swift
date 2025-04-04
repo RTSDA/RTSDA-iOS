@@ -95,7 +95,7 @@ struct Bulletin: Identifiable, Codable {
 
 class PocketBaseService {
     static let shared = PocketBaseService()
-    private let baseURL = "https://pocketbase.rockvilletollandsda.church/api/collections"
+    let baseURL = "https://pocketbase.rockvilletollandsda.church/api/collections"
     
     private init() {}
     

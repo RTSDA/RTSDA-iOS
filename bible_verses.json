@@ -1,0 +1,125 @@
+{
+  "id": "verses",
+  "verses": [
+    {
+      "id": "1",
+      "reference": "Jeremiah 29:11",
+      "text": "For I know the thoughts that I think toward you, saith the LORD, thoughts of peace, and not of evil, to give you an expected end.",
+      "is_active": true
+    },
+    {
+      "id": "2",
+      "reference": "Proverbs 3:5",
+      "text": "Trust in the LORD with all thine heart; and lean not unto thine own understanding.",
+      "is_active": true
+    },
+    {
+      "id": "3",
+      "reference": "Philippians 4:13",
+      "text": "I can do all things through Christ which strengtheneth me.",
+      "is_active": true
+    },
+    {
+      "id": "4",
+      "reference": "John 3:16",
+      "text": "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.",
+      "is_active": true
+    },
+    {
+      "id": "5",
+      "reference": "Romans 8:28",
+      "text": "And we know that all things work together for good to them that love God, to them who are the called according to his purpose.",
+      "is_active": true
+    },
+    {
+      "id": "6",
+      "reference": "Matthew 6:33",
+      "text": "But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you.",
+      "is_active": true
+    },
+    {
+      "id": "7",
+      "reference": "Isaiah 41:10",
+      "text": "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness.",
+      "is_active": true
+    },
+    {
+      "id": "8",
+      "reference": "Joshua 1:9",
+      "text": "Have not I commanded thee? Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.",
+      "is_active": true
+    },
+    {
+      "id": "9",
+      "reference": "Psalm 23:1",
+      "text": "The LORD is my shepherd; I shall not want.",
+      "is_active": true
+    },
+    {
+      "id": "10",
+      "reference": "Psalm 27:1",
+      "text": "The LORD is my light and my salvation; whom shall I fear? the LORD is the strength of my life; of whom shall I be afraid?",
+      "is_active": true
+    },
+    {
+      "id": "11",
+      "reference": "Psalm 46:1",
+      "text": "God is our refuge and strength, a very present help in trouble.",
+      "is_active": true
+    },
+    {
+      "id": "12",
+      "reference": "Psalm 91:1",
+      "text": "He that dwelleth in the secret place of the most High shall abide under the shadow of the Almighty.",
+      "is_active": true
+    },
+    {
+      "id": "13",
+      "reference": "Psalm 119:105",
+      "text": "Thy word is a lamp unto my feet, and a light unto my path.",
+      "is_active": true
+    },
+    {
+      "id": "14",
+      "reference": "Psalm 121:1",
+      "text": "I will lift up mine eyes unto the hills, from whence cometh my help.",
+      "is_active": true
+    },
+    {
+      "id": "15",
+      "reference": "Psalm 139:14",
+      "text": "I will praise thee; for I am fearfully and wonderfully made: marvellous are thy works; and that my soul knoweth right well.",
+      "is_active": true
+    },
+    {
+      "id": "16",
+      "reference": "Proverbs 16:3",
+      "text": "Commit thy works unto the LORD, and thy thoughts shall be established.",
+      "is_active": true
+    },
+    {
+      "id": "17",
+      "reference": "Isaiah 40:31",
+      "text": "But they that wait upon the LORD shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.",
+      "is_active": true
+    },
+    {
+      "id": "18",
+      "reference": "Matthew 11:28",
+      "text": "Come unto me, all ye that labour and are heavy laden, and I will give you rest.",
+      "is_active": true
+    },
+    {
+      "id": "19",
+      "reference": "John 14:27",
+      "text": "Peace I leave with you, my peace I give unto you: not as the world giveth, give I unto you. Let not your heart be troubled, neither let it be afraid.",
+      "is_active": true
+    },
+    {
+      "id": "20",
+      "reference": "Romans 12:2",
+      "text": "And be not conformed to this world: but be ye transformed by the renewing of your mind, that ye may prove what is that good, and acceptable, and perfect, will of God.",
+      "is_active": true
+    }
+  ]
+} 

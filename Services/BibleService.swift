@@ -3,86 +3,156 @@ import Foundation
 @MainActor
 class BibleService {
     static let shared = BibleService()
-    private let configService = ConfigService.shared
-    private let baseURL = "https://api.scripture.api.bible/v1"
+    private let pocketBaseService = PocketBaseService.shared
     
     private init() {}
     
-    // API Response structures
-    struct BibleAPIResponse: Codable {
-        let data: VerseData
-    }
-    
-    struct VerseData: Codable {
+    struct Verse: Identifiable, Codable {
         let id: String
-        let orgId: String
-        let bibleId: String
-        let bookId: String
-        let chapterId: String
         let reference: String
-        let content: String
+        let text: String
+        let isActive: Bool
         
-        // The API returns HTML content, so we'll clean it up
-        var cleanContent: String {
-            return content
-                .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                .replacingOccurrences(of: "&quot;", with: "\"")
-                .replacingOccurrences(of: "&#39;", with: "'")
-                .replacingOccurrences(of: "¶\\s*", with: "", options: .regularExpression)
-                .replacingOccurrences(of: "^\\d+\\s*", with: "", options: .regularExpression) // Remove verse numbers at start
-                .replacingOccurrences(of: "\\((.*?)\\)", with: "$1", options: .regularExpression) // Keep text inside parentheses
-                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-                .trimmingCharacters(in: .whitespaces)
+        enum CodingKeys: String, CodingKey {
+            case id
+            case reference
+            case text
+            case isActive = "is_active"
         }
     }
+    
+    struct VersesRecord: Codable {
+        let collectionId: String
+        let collectionName: String
+        let created: String
+        let id: String
+        let updated: String
+        let verses: VersesData
+        
+        struct VersesData: Codable {
+            let id: String
+            let verses: [Verse]
+        }
+    }
+    
+    private var cachedVerses: [Verse]?
     
     func getRandomVerse() async throws -> (verse: String, reference: String) {
-        // List of popular and uplifting Bible verses
-        let references = [
-            //"JER.29.11", "PRO.3.5", "PHP.4.13", "JOS.1.9", 
-            "PSA.23.1",
-            //"ISA.40.31", "MAT.11.28", "ROM.8.28", "PSA.27.1", "PSA.46.10",
-            //"JHN.3.16", "ROM.15.13", 
-            "2CO.5.7", //"DEU.31.6", "ROM.8.31",
-            //"1JN.4.19", "PHP.4.6", "MAT.6.33", "HEB.11.1", "PSA.37.4"
-        ]
+        let verses = try await getVerses()
+        print("Total verses available: \(verses.count)")
         
-        // Randomly select a reference
-        let randomReference = references.randomElement() ?? "JHN.3.16"
-        
-        guard let apiKey = configService.bibleApiKey else {
-            throw NSError(domain: "BibleService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Bible API key not found"])
+        guard !verses.isEmpty else {
+            print("No verses available")
+            throw NSError(domain: "BibleService", code: -1, userInfo: [NSLocalizedDescriptionKey: "No verses available"])
         }
         
-        // Construct the API URL
-        let urlString = "\(baseURL)/bibles/de4e12af7f28f599-01/verses/\(randomReference)"
-        var request = URLRequest(url: URL(string: urlString)!)
-        request.addValue(apiKey, forHTTPHeaderField: "api-key")
+        let randomVerse = verses.randomElement()!
+        print("Selected random verse: \(randomVerse.reference)")
+        return (verse: randomVerse.text, reference: randomVerse.reference)
+    }
+    
+    func getVerse(reference: String) async throws -> (verse: String, reference: String) {
+        print("Looking up verse with reference: \(reference)")
         
+        // Convert API-style reference (e.g., "JER.29.11") to display format ("Jeremiah 29:11")
+        let displayReference = reference
+            .replacingOccurrences(of: "\\.", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "([A-Z]+)", with: "$1 ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        
+        print("Converted reference to: \(displayReference)")
+        
+        let verses = try await getVerses()
+        print("Found \(verses.count) verses")
+        
+        if let verse = verses.first(where: { $0.reference.lowercased() == displayReference.lowercased() }) {
+            print("Found matching verse: \(verse.reference)")
+            return (verse: verse.text, reference: verse.reference)
+        }
+        
+        print("No matching verse found for reference: \(displayReference)")
+        throw NSError(domain: "BibleService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Verse not found"])
+    }
+    
+    private func getVerses() async throws -> [Verse] {
+        // Return cached verses if available
+        if let cached = cachedVerses {
+            print("Returning cached verses")
+            return cached
+        }
+        
+        print("Fetching verses from PocketBase")
+        // Fetch from PocketBase
+        let endpoint = "\(PocketBaseService.shared.baseURL)/bible_verses/records/nkf01o1q3456flr"
+        
+        guard let url = URL(string: endpoint) else {
+            print("Invalid URL: \(endpoint)")
+            throw URLError(.badURL)
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        print("Making request to: \(endpoint)")
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        // Log raw response
-        if let rawResponse = String(data: data, encoding: .utf8) {
-            print("Raw Bible API Response:")
-            print(rawResponse)
-            print("\n")
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("Invalid response type")
+            throw URLError(.badServerResponse)
         }
         
-        // Check for successful response
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw NSError(domain: "BibleService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to fetch verse"])
+        print("Response status code: \(httpResponse.statusCode)")
+        
+        guard httpResponse.statusCode == 200 else {
+            if let errorString = String(data: data, encoding: .utf8) {
+                print("Error response from server: \(errorString)")
+            }
+            throw URLError(.badServerResponse)
+        }
+        
+        // Print raw response for debugging
+        if let rawResponse = String(data: data, encoding: .utf8) {
+            print("Raw response from PocketBase:")
+            print(rawResponse)
         }
         
         let decoder = JSONDecoder()
-        let apiResponse = try decoder.decode(BibleAPIResponse.self, from: data)
-        
-        // Log cleaned content
-        print("Cleaned verse content:")
-        print(apiResponse.data.cleanContent)
-        print("\nReference:", apiResponse.data.reference)
-        print("\n")
-        
-        return (verse: apiResponse.data.cleanContent, reference: apiResponse.data.reference)
+        do {
+            let versesRecord = try decoder.decode(VersesRecord.self, from: data)
+            
+            // Cache the verses
+            cachedVerses = versesRecord.verses.verses
+            print("Successfully fetched and cached \(versesRecord.verses.verses.count) verses")
+            
+            return versesRecord.verses.verses
+        } catch {
+            print("Failed to decode response: \(error)")
+            if let decodingError = error as? DecodingError {
+                switch decodingError {
+                case .keyNotFound(let key, let context):
+                    print("Missing key: \(key.stringValue) in \(context.debugDescription)")
+                case .typeMismatch(let type, let context):
+                    print("Type mismatch: expected \(type) in \(context.debugDescription)")
+                case .valueNotFound(let type, let context):
+                    print("Value not found: expected \(type) in \(context.debugDescription)")
+                case .dataCorrupted(let context):
+                    print("Data corrupted: \(context.debugDescription)")
+                @unknown default:
+                    print("Unknown decoding error")
+                }
+            }
+            throw error
+        }
+    }
+    
+    func testAllVerses() async throws {
+        print("\n=== Testing All Verses ===\n")
+        let verses = try await getVerses()
+        for verse in verses {
+            print("Reference: \(verse.reference)")
+            print("Verse: \(verse.text)")
+            print("-------------------\n")
+        }
+        print("=== Test Complete ===\n")
     }
 }

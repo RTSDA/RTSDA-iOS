@@ -495,7 +495,7 @@ struct MoreView: View {
                             fallbackURL: AppAvailabilityService.AppStoreURLs.hymnal
                         )
                     } label: {
-                        Label("SDA Hymnal", systemImage: "music.note")
+                        Label("Adventist Hymnal", systemImage: "music.note")
                     }
                 }
                 
