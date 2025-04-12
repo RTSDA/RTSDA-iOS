@@ -112,6 +112,30 @@ class AppAvailabilityService {
         }
     }
     
+    // Open a specific responsive reading by number
+    func openResponsiveReadingByNumber(_ readingNumber: Int) {
+        // Format: adventisthymnarium://reading?number=123
+        let hymnalScheme = "\(Schemes.hymnal)reading?number=\(readingNumber)"
+        print("📖 Attempting to open responsive reading #\(readingNumber): \(hymnalScheme)")
+        
+        if let readingUrl = URL(string: hymnalScheme) {
+            if UIApplication.shared.canOpenURL(readingUrl) {
+                UIApplication.shared.open(readingUrl) { success in
+                    if !success {
+                        print("❌ Failed to open responsive reading #\(readingNumber)")
+                        self.openApp(urlScheme: Schemes.hymnal, fallbackURL: AppStoreURLs.hymnal)
+                    }
+                }
+            } else {
+                print("❌ Cannot open responsive reading #\(readingNumber)")
+                openApp(urlScheme: Schemes.hymnal, fallbackURL: AppStoreURLs.hymnal)
+            }
+        } else {
+            print("⚠️ Failed to create URL for responsive reading #\(readingNumber)")
+            openApp(urlScheme: Schemes.hymnal, fallbackURL: AppStoreURLs.hymnal)
+        }
+    }
+    
     private func handleFallback(urlScheme: String, fallbackURL: String) {
         // Try the App Store URL first
         if let fallback = URL(string: fallbackURL) {

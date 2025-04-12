@@ -302,6 +302,7 @@ struct BulletinContentView: View {
     enum ContentType {
         case text
         case hymn(number: Int)
+        case responsiveReading(number: Int)
         case bibleVerse
         case sectionHeader
     }
@@ -353,7 +354,36 @@ struct BulletinContentView: View {
         var segments: [ContentSegment] = []
         let nsLine = cleanedLine as NSString
         
-        // Check for section headers with specific patterns
+        // Check for section headers
+        if let headerSegment = processHeader(cleanedLine, nsLine) {
+            segments.append(headerSegment)
+            return segments
+        }
+        
+        // Process hymn numbers
+        if let hymnSegments = processHymns(cleanedLine, nsLine) {
+            segments.append(contentsOf: hymnSegments)
+            return segments
+        }
+        
+        // Process responsive readings
+        if let readingSegments = processResponsiveReadings(cleanedLine, nsLine) {
+            segments.append(contentsOf: readingSegments)
+            return segments
+        }
+        
+        // Process Bible verses
+        if let verseSegments = processBibleVerses(cleanedLine, nsLine) {
+            segments.append(contentsOf: verseSegments)
+            return segments
+        }
+        
+        // If no special processing was done, add as regular text
+        segments.append((id: UUID(), text: cleanedLine, type: .text, reference: nil))
+        return segments
+    }
+    
+    private func processHeader(_ line: String, _ nsLine: NSString) -> ContentSegment? {
         let headerPatterns = [
             // Sabbath School headers
             #"^(Sabbath School):?"#,
@@ -385,94 +415,119 @@ struct BulletinContentView: View {
         
         for pattern in headerPatterns {
             let headerRegex = try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
-            let headerMatches = headerRegex.matches(in: cleanedLine, range: NSRange(location: 0, length: nsLine.length))
+            let headerMatches = headerRegex.matches(in: line, range: NSRange(location: 0, length: nsLine.length))
             
             if !headerMatches.isEmpty {
-                // Add the header
                 let headerText = nsLine.substring(with: headerMatches[0].range(at: 1))
                     .trimmingCharacters(in: .whitespaces)
-                segments.append((id: UUID(), text: headerText, type: .sectionHeader, reference: nil))
-                
-                // Add any remaining text after the header
-                if headerMatches[0].range.location + headerMatches[0].range.length < nsLine.length {
-                    let remainingText = nsLine.substring(from: headerMatches[0].range.location + headerMatches[0].range.length)
-                        .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ":")))
-                    if !remainingText.isEmpty {
-                        segments.append((id: UUID(), text: remainingText, type: .text, reference: nil))
-                    }
-                }
-                return segments
+                return (id: UUID(), text: headerText, type: .sectionHeader, reference: nil)
             }
         }
         
-        // Match hymn numbers with surrounding text
+        return nil
+    }
+    
+    private func processHymns(_ line: String, _ nsLine: NSString) -> [ContentSegment]? {
         let hymnPattern = #"(?:Hymn(?:al)?\s+(?:#\s*)?|#\s*)(\d+)(?:\s+["""]([^"""]*)[""])?.*"#
         let hymnRegex = try! NSRegularExpression(pattern: hymnPattern, options: [.caseInsensitive])
-        let hymnMatches = hymnRegex.matches(in: cleanedLine, range: NSRange(location: 0, length: nsLine.length))
+        let hymnMatches = hymnRegex.matches(in: line, range: NSRange(location: 0, length: nsLine.length))
         
-        // Match Bible verses (simplified pattern)
+        if hymnMatches.isEmpty { return nil }
+        
+        var segments: [ContentSegment] = []
+        var lastIndex = 0
+        
+        for match in hymnMatches {
+            if match.range.location > lastIndex {
+                let text = nsLine.substring(with: NSRange(location: lastIndex, length: match.range.location - lastIndex))
+                if !text.isEmpty {
+                    segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
+                }
+            }
+            
+            let hymnNumber = Int(nsLine.substring(with: match.range(at: 1)))!
+            let fullHymnText = nsLine.substring(with: match.range)
+            segments.append((id: UUID(), text: fullHymnText, type: .hymn(number: hymnNumber), reference: nil))
+            
+            lastIndex = match.range.location + match.range.length
+        }
+        
+        if lastIndex < nsLine.length {
+            let text = nsLine.substring(from: lastIndex)
+            if !text.isEmpty {
+                segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
+            }
+        }
+        
+        return segments
+    }
+    
+    private func processResponsiveReadings(_ line: String, _ nsLine: NSString) -> [ContentSegment]? {
+        let responsivePattern = #"(?:Responsive\s+Reading\s+(?:#\s*)?|#\s*)(\d+)(?:\s+["""]([^"""]*)[""])?.*"#
+        let responsiveRegex = try! NSRegularExpression(pattern: responsivePattern, options: [.caseInsensitive])
+        let responsiveMatches = responsiveRegex.matches(in: line, range: NSRange(location: 0, length: nsLine.length))
+        
+        if responsiveMatches.isEmpty { return nil }
+        
+        var segments: [ContentSegment] = []
+        var lastIndex = 0
+        
+        for match in responsiveMatches {
+            if match.range.location > lastIndex {
+                let text = nsLine.substring(with: NSRange(location: lastIndex, length: match.range.location - lastIndex))
+                if !text.isEmpty {
+                    segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
+                }
+            }
+            
+            let readingNumber = Int(nsLine.substring(with: match.range(at: 1)))!
+            let fullReadingText = nsLine.substring(with: match.range)
+            segments.append((id: UUID(), text: fullReadingText, type: .responsiveReading(number: readingNumber), reference: nil))
+            
+            lastIndex = match.range.location + match.range.length
+        }
+        
+        if lastIndex < nsLine.length {
+            let text = nsLine.substring(from: lastIndex)
+            if !text.isEmpty {
+                segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
+            }
+        }
+        
+        return segments
+    }
+    
+    private func processBibleVerses(_ line: String, _ nsLine: NSString) -> [ContentSegment]? {
         let versePattern = #"(?:^|\s|[,;])\s*(?:(?:1|2|3|I|II|III|First|Second|Third)\s+)?(?:Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|(?:1st|2nd|1|2)\s*Samuel|(?:1st|2nd|1|2)\s*Kings|(?:1st|2nd|1|2)\s*Chronicles|Ezra|Nehemiah|Esther|Job|Psalms?|Proverbs|Ecclesiastes|Song\s+of\s+Solomon|Isaiah|Jeremiah|Lamentations|Ezekiel|Daniel|Hosea|Joel|Amos|Obadiah|Jonah|Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|Matthew|Mark|Luke|John|Acts|Romans|(?:1st|2nd|1|2)\s*Corinthians|Galatians|Ephesians|Philippians|Colossians|(?:1st|2nd|1|2)\s*Thessalonians|(?:1st|2nd|1|2)\s*Timothy|Titus|Philemon|Hebrews|James|(?:1st|2nd|1|2)\s*Peter|(?:1st|2nd|3rd|1|2|3)\s*John|Jude|Revelation)s?\s+\d+(?::\d+(?:-\d+)?)?(?:\s*,\s*\d+(?::\d+(?:-\d+)?)?)*"#
         let verseRegex = try! NSRegularExpression(pattern: versePattern, options: [.caseInsensitive])
-        let verseMatches = verseRegex.matches(in: cleanedLine, range: NSRange(location: 0, length: nsLine.length))
+        let verseMatches = verseRegex.matches(in: line, range: NSRange(location: 0, length: nsLine.length))
         
-        if !hymnMatches.isEmpty {
-            var lastIndex = 0
-            
-            for match in hymnMatches {
-                // Add text before hymn
-                if match.range.location > lastIndex {
-                    let text = nsLine.substring(with: NSRange(location: lastIndex, length: match.range.location - lastIndex))
-                    if !text.isEmpty {
-                        segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
-                    }
-                }
-                
-                // Add entire hymn line
-                let hymnNumber = Int(nsLine.substring(with: match.range(at: 1)))!
-                let fullHymnText = nsLine.substring(with: match.range)
-                segments.append((id: UUID(), text: fullHymnText, type: .hymn(number: hymnNumber), reference: nil))
-                
-                lastIndex = match.range.location + match.range.length
-            }
-            
-            // Add remaining text
-            if lastIndex < nsLine.length {
-                let text = nsLine.substring(from: lastIndex)
+        if verseMatches.isEmpty { return nil }
+        
+        var segments: [ContentSegment] = []
+        var lastIndex = 0
+        
+        for match in verseMatches {
+            if match.range.location > lastIndex {
+                let text = nsLine.substring(with: NSRange(location: lastIndex, length: match.range.location - lastIndex))
                 if !text.isEmpty {
                     segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
                 }
             }
-        } else if !verseMatches.isEmpty {
-            var lastIndex = 0
             
-            for match in verseMatches {
-                // Add text before verse
-                if match.range.location > lastIndex {
-                    let text = nsLine.substring(with: NSRange(location: lastIndex, length: match.range.location - lastIndex))
-                    if !text.isEmpty {
-                        segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
-                    }
-                }
-                
-                // Add verse with full range, keeping KJV in display text
-                let verseText = nsLine.substring(with: match.range)
-                    .trimmingCharacters(in: .whitespaces)
-                
-                segments.append((id: UUID(), text: verseText, type: .bibleVerse, reference: verseText))
-                
-                lastIndex = match.range.location + match.range.length
-            }
+            let verseText = nsLine.substring(with: match.range)
+                .trimmingCharacters(in: .whitespaces)
             
-            // Add remaining text
-            if lastIndex < nsLine.length {
-                let text = nsLine.substring(from: lastIndex)
-                if !text.isEmpty {
-                    segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
-                }
+            segments.append((id: UUID(), text: verseText, type: .bibleVerse, reference: verseText))
+            
+            lastIndex = match.range.location + match.range.length
+        }
+        
+        if lastIndex < nsLine.length {
+            let text = nsLine.substring(from: lastIndex)
+            if !text.isEmpty {
+                segments.append((id: UUID(), text: text.trimmingCharacters(in: .whitespaces), type: .text, reference: nil))
             }
-        } else {
-            // Regular text
-            segments.append((id: UUID(), text: cleanedLine, type: .text, reference: nil))
         }
         
         return segments
@@ -530,88 +585,130 @@ struct BulletinContentView: View {
         return "\(bookCode).\(reference)"
     }
     
+    private func renderTextSegment(_ segment: ContentSegment) -> some View {
+        Text(segment.text)
+            .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.center)
+            .foregroundColor(.primary)
+    }
+    
+    private func renderHymnSegment(_ segment: ContentSegment, number: Int) -> some View {
+        Button(action: {
+            AppAvailabilityService.shared.openHymnByNumber(number)
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "music.note")
+                    .foregroundColor(.blue)
+                Text(segment.text)
+                    .foregroundColor(.blue)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.1))
+            )
+        }
+    }
+    
+    private func renderResponsiveReadingSegment(_ segment: ContentSegment, number: Int) -> some View {
+        Button(action: {
+            AppAvailabilityService.shared.openResponsiveReadingByNumber(number)
+        }) {
+            HStack {
+                Image(systemName: "book")
+                    .foregroundColor(.blue)
+                Text("Responsive Reading #\(number)")
+                    .foregroundColor(.blue)
+            }
+        }
+    }
+    
+    private func renderBibleVerseSegment(_ segment: ContentSegment, reference: String) -> some View {
+        Button(action: {
+            let formattedVerse = formatBibleVerse(reference)
+            if let url = URL(string: "https://www.bible.com/bible/1/\(formattedVerse)") {
+                UIApplication.shared.open(url)
+            }
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "book.fill")
+                    .foregroundColor(.blue)
+                Text(segment.text)
+                    .foregroundColor(.blue)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.1))
+            )
+        }
+    }
+    
+    private func renderSectionHeaderSegment(_ segment: ContentSegment) -> some View {
+        Text(segment.text)
+            .font(.headline)
+            .fontWeight(.semibold)
+            .foregroundColor(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 16)
+            .padding(.bottom, 4)
+            .padding(.horizontal, 8)
+    }
+    
+    private func renderLine(_ line: String) -> some View {
+        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmedLine.isEmpty else { return AnyView(EmptyView()) }
+        
+        return AnyView(
+            HStack(alignment: .center, spacing: 4) {
+                ForEach(processLine(trimmedLine), id: \.id) { segment in
+                    switch segment.type {
+                    case .text:
+                        renderTextSegment(segment)
+                    case .hymn(let number):
+                        renderHymnSegment(segment, number: number)
+                    case .responsiveReading(let number):
+                        renderResponsiveReadingSegment(segment, number: number)
+                    case .bibleVerse:
+                        if let reference = segment.reference {
+                            renderBibleVerseSegment(segment, reference: reference)
+                        }
+                    case .sectionHeader:
+                        renderSectionHeaderSegment(segment)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        )
+    }
+    
+    private func renderSection(_ title: String, content: String) -> some View {
+        VStack(alignment: .center, spacing: 16) {
+            Text(title)
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, 8)
+            
+            VStack(alignment: .center, spacing: 12) {
+                ForEach(Array(zip(content.components(separatedBy: .newlines).indices, 
+                                content.components(separatedBy: .newlines))), id: \.0) { _, line in
+                    renderLine(line)
+                }
+            }
+        }
+        .padding(.vertical, 12)
+    }
+    
     var body: some View {
         VStack(alignment: .center, spacing: 24) {
             ForEach(sectionOrder, id: \.0) { (title, keyPath) in
                 let content = bulletin[keyPath: keyPath]
                 if !content.isEmpty {
-                    VStack(alignment: .center, spacing: 16) {
-                        Text(title)
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.bottom, 8)
-                        
-                        VStack(alignment: .center, spacing: 12) {
-                            ForEach(Array(zip(content.components(separatedBy: .newlines).indices, content.components(separatedBy: .newlines))), id: \.0) { index, line in
-                                let trimmedLine = line.trimmingCharacters(in: .whitespaces)
-                                if !trimmedLine.isEmpty {
-                                    HStack(alignment: .center, spacing: 4) {
-                                        ForEach(processLine(trimmedLine), id: \.id) { segment in
-                                            switch segment.type {
-                                            case .text:
-                                                Text(segment.text)
-                                                    .fixedSize(horizontal: false, vertical: true)
-                                                    .multilineTextAlignment(.center)
-                                                    .foregroundColor(.primary)
-                                            case .hymn(let number):
-                                                Button(action: {
-                                                    AppAvailabilityService.shared.openHymnByNumber(number)
-                                                }) {
-                                                    HStack(spacing: 6) {
-                                                        Image(systemName: "music.note")
-                                                            .foregroundColor(.blue)
-                                                        Text(segment.text)
-                                                            .foregroundColor(.blue)
-                                                    }
-                                                    .padding(.horizontal, 12)
-                                                    .padding(.vertical, 6)
-                                                    .background(
-                                                        RoundedRectangle(cornerRadius: 8)
-                                                            .fill(Color.blue.opacity(0.1))
-                                                    )
-                                                }
-                                            case .bibleVerse:
-                                                if let reference = segment.reference {
-                                                    Button(action: {
-                                                        let formattedVerse = formatBibleVerse(reference)
-                                                        if let url = URL(string: "https://www.bible.com/bible/1/\(formattedVerse)") {
-                                                            UIApplication.shared.open(url)
-                                                        }
-                                                    }) {
-                                                        HStack(spacing: 6) {
-                                                            Image(systemName: "book.fill")
-                                                                .foregroundColor(.blue)
-                                                            Text(segment.text)
-                                                                .foregroundColor(.blue)
-                                                        }
-                                                        .padding(.horizontal, 12)
-                                                        .padding(.vertical, 6)
-                                                        .background(
-                                                            RoundedRectangle(cornerRadius: 8)
-                                                                .fill(Color.blue.opacity(0.1))
-                                                        )
-                                                    }
-                                                }
-                                            case .sectionHeader:
-                                                Text(segment.text)
-                                                    .font(.headline)
-                                                    .fontWeight(.semibold)
-                                                    .foregroundColor(.primary)
-                                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                                    .padding(.top, 16)
-                                                    .padding(.bottom, 4)
-                                                    .padding(.horizontal, 8)
-                                            }
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.vertical, 12)
+                    renderSection(title, content: content)
                     
                     if title != sectionOrder.last?.0 {
                         Divider()
