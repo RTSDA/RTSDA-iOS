@@ -142,10 +142,8 @@ class ContactFormViewModel: ObservableObject {
         // Format the number
         if digits.isEmpty {
             return ""
-        } else if digits.count <= 3 {
-            return "(\(digits))"
-        } else if digits.count <= 6 {
-            return "(\(digits.prefix(3))) \(digits.dropFirst(3))"
+        } else if digits.count < 10 {
+            return digits
         } else {
             let areaCode = digits.prefix(3)
             let middle = digits.dropFirst(3).prefix(3)
