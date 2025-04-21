@@ -6,133 +6,142 @@ struct PDFViewer: UIViewRepresentable {
     let url: URL
     @Binding var isLoading: Bool
     @Binding var error: Error?
+    @Binding var hasInteracted: Bool
     @State private var downloadTask: Task<Void, Never>?
+    @State private var documentTask: Task<Void, Never>?
+    @State private var pageCount: Int = 0
+    @State private var currentPage: Int = 1
+    @State private var pdfData: Data?
     
     func makeUIView(context: Context) -> PDFView {
-        print("PDFViewer: Creating PDFView")
         let pdfView = PDFView()
         pdfView.autoScales = true
-        pdfView.displayMode = .singlePage
-        pdfView.displayDirection = .vertical
+        pdfView.displayMode = .twoUpContinuous
+        pdfView.displayDirection = .horizontal
+        pdfView.backgroundColor = .systemBackground
+        pdfView.usePageViewController(true)
+        pdfView.delegate = context.coordinator
         return pdfView
     }
     
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
     func updateUIView(_ uiView: PDFView, context: Context) {
-        print("PDFViewer: updateUIView called")
-        print("PDFViewer: URL = \(url)")
+        // Only start a new download if we don't have the data yet
+        if pdfData == nil {
+            Task { @MainActor in
+                await startDownload(for: uiView)
+            }
+        } else if uiView.document == nil && documentTask == nil {
+            Task { @MainActor in
+                await createDocument(for: uiView)
+            }
+        }
+    }
+    
+    class Coordinator: NSObject, PDFViewDelegate {
+        var parent: PDFViewer
         
+        init(_ parent: PDFViewer) {
+            self.parent = parent
+        }
+        
+        func pdfViewPageChanged(_ notification: Notification) {
+            if !parent.hasInteracted {
+                parent.hasInteracted = true
+            }
+        }
+    }
+    
+    private func createDocument(for pdfView: PDFView) async {
+        documentTask?.cancel()
+        
+        documentTask = Task {
+            do {
+                guard let data = pdfData else { return }
+                let document = try await createPDFDocument(from: data)
+                
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        pdfView.document = document
+                        pageCount = document.pageCount
+                        isLoading = false
+                    }
+                }
+            } catch {
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        self.error = error
+                        isLoading = false
+                    }
+                }
+            }
+            await MainActor.run {
+                documentTask = nil
+            }
+        }
+    }
+    
+    private func startDownload(for pdfView: PDFView) async {
         // Cancel any existing task
         downloadTask?.cancel()
         
         // Create new task
         downloadTask = Task {
-            print("PDFViewer: Starting download task")
-            isLoading = true
-            error = nil
+            await MainActor.run {
+                isLoading = true
+                error = nil
+            }
             
             do {
-                print("PDFViewer: Downloading PDF data...")
-                var request = URLRequest(url: url)
-                request.timeoutInterval = 30 // 30 second timeout
-                request.setValue("application/pdf", forHTTPHeaderField: "Accept")
-                request.setValue("application/pdf", forHTTPHeaderField: "Content-Type")
-                
-                // Add authentication headers
-                if let token = UserDefaults.standard.string(forKey: "authToken") {
-                    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                }
-                
-                print("PDFViewer: Making request with headers: \(request.allHTTPHeaderFields ?? [:])")
-                
-                let (data, response) = try await URLSession.shared.data(for: request)
+                // Download PDF data
+                let (data, _) = try await downloadPDFData()
                 
                 // Check if task was cancelled
-                if Task.isCancelled {
-                    print("PDFViewer: Task was cancelled, stopping download")
-                    return
+                if Task.isCancelled { return }
+                
+                // Store the data
+                await MainActor.run {
+                    self.pdfData = data
                 }
                 
-                print("PDFViewer: Downloaded \(data.count) bytes")
-                
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    print("PDFViewer: Invalid response type")
-                    throw URLError(.badServerResponse)
-                }
-                
-                print("PDFViewer: HTTP Status Code: \(httpResponse.statusCode)")
-                print("PDFViewer: Response headers: \(httpResponse.allHeaderFields)")
-                
-                guard httpResponse.statusCode == 200 else {
-                    print("PDFViewer: Bad HTTP status code: \(httpResponse.statusCode)")
-                    if let errorString = String(data: data, encoding: .utf8) {
-                        print("PDFViewer: Error response: \(errorString)")
-                    }
-                    throw URLError(.badServerResponse)
-                }
-                
-                // Check if task was cancelled again before processing data
-                if Task.isCancelled {
-                    print("PDFViewer: Task was cancelled before processing data")
-                    return
-                }
-                
-                // Create PDF document from data
-                print("PDFViewer: Creating PDF document from data...")
-                if let document = PDFDocument(data: data) {
-                    print("PDFViewer: PDF document created successfully")
-                    print("PDFViewer: Number of pages: \(document.pageCount)")
-                    
-                    // Final cancellation check before updating UI
-                    if Task.isCancelled {
-                        print("PDFViewer: Task was cancelled before updating UI")
-                        return
-                    }
-                    
-                    await MainActor.run {
-                        uiView.document = document
-                        isLoading = false
-                        print("PDFViewer: PDF document set to view")
-                    }
-                } else {
-                    print("PDFViewer: Failed to create PDF document from data")
-                    print("PDFViewer: Data size: \(data.count) bytes")
-                    print("PDFViewer: First few bytes: \(data.prefix(16).map { String(format: "%02x", $0) }.joined())")
-                    throw URLError(.cannotDecodeContentData)
-                }
             } catch {
-                // Only show error if it's not a cancellation
                 if !Task.isCancelled {
-                    print("PDFViewer: Error loading PDF: \(error)")
-                    print("PDFViewer: Error description: \(error.localizedDescription)")
-                    if let decodingError = error as? DecodingError {
-                        print("PDFViewer: Decoding error details: \(decodingError)")
-                    }
-                    if let urlError = error as? URLError {
-                        print("PDFViewer: URL Error: \(urlError)")
-                        print("PDFViewer: URL Error Code: \(urlError.code)")
-                        print("PDFViewer: URL Error Description: \(urlError.localizedDescription)")
-                    }
                     await MainActor.run {
                         self.error = error
-                        isLoading = false
-                    }
-                } else {
-                    print("PDFViewer: Task was cancelled, ignoring error")
-                    await MainActor.run {
                         isLoading = false
                     }
                 }
             }
         }
+    }
+    
+    private func createPDFDocument(from data: Data) async throws -> PDFDocument {
+        return try await Task.detached {
+            guard let document = PDFDocument(data: data) else {
+                throw URLError(.cannotDecodeContentData)
+            }
+            return document
+        }.value
+    }
+    
+    private func downloadPDFData() async throws -> (Data, URLResponse) {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 30
+        request.setValue("application/pdf", forHTTPHeaderField: "Accept")
+        request.setValue("application/pdf", forHTTPHeaderField: "Content-Type")
         
-        // Wait for the task to complete
-        Task {
-            await downloadTask?.value
+        if let token = UserDefaults.standard.string(forKey: "authToken") {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+        
+        return try await URLSession.shared.data(for: request)
     }
     
     static func dismantleUIView(_ uiView: PDFView, coordinator: ()) {
-        print("PDFViewer: Dismantling view")
+        uiView.document = nil
     }
 }
 
@@ -216,6 +225,11 @@ struct BulletinListView: View {
 
 struct BulletinDetailView: View {
     let bulletin: Bulletin
+    @State private var isLoading = false
+    @State private var error: Error?
+    @State private var showPDFViewer = false
+    @State private var showScrollIndicator = true
+    @State private var hasInteracted = false
     
     var body: some View {
         ScrollView {
@@ -240,34 +254,34 @@ struct BulletinDetailView: View {
                 )
                 .padding(.horizontal)
                 
-                // PDF Download Button
-                if let pdf = bulletin.pdf, !pdf.isEmpty {
-                    if let url = URL(string: bulletin.pdfUrl) {
-                        Button(action: {
-                            UIApplication.shared.open(url)
-                        }) {
-                            HStack {
-                                Image(systemName: "doc.fill")
-                                    .font(.title3)
-                                Text("View PDF")
-                                    .font(.headline)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                            .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                // PDF Button
+                if bulletin.pdf != nil {
+                    Button(action: {
+                        showPDFViewer = true
+                        showScrollIndicator = true
+                        hasInteracted = false
+                    }) {
+                        HStack {
+                            Image(systemName: "doc.fill")
+                                .font(.title3)
+                            Text("View PDF")
+                                .font(.headline)
                         }
-                        .padding(.horizontal)
-                        .padding(.bottom, 16)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                        .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
                     }
+                    .padding(.horizontal)
+                    .padding(.bottom, 16)
                 }
                 
                 // Content
@@ -283,6 +297,80 @@ struct BulletinDetailView: View {
             .padding(.vertical)
         }
         .background(Color(.systemGroupedBackground))
+        .sheet(isPresented: $showPDFViewer) {
+            if let url = URL(string: bulletin.pdfUrl) {
+                NavigationStack {
+                    ZStack {
+                        PDFViewer(url: url, isLoading: $isLoading, error: $error, hasInteracted: $hasInteracted)
+                            .ignoresSafeArea()
+                        
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .scaleEffect(1.5)
+                                .tint(.white)
+                        }
+                        
+                        if let error = error {
+                            VStack(spacing: 16) {
+                                Text("Error loading PDF")
+                                    .font(.headline)
+                                    .foregroundColor(.red)
+                                Text(error.localizedDescription)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Button("Try Again") {
+                                    self.error = nil
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .padding()
+                            .background(Color(.systemBackground))
+                            .cornerRadius(10)
+                        }
+                        
+                        if showScrollIndicator && !hasInteracted {
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+                                    VStack(spacing: 8) {
+                                        Image(systemName: "arrow.left.and.right")
+                                            .font(.title)
+                                            .foregroundColor(.white)
+                                        Text("Swipe to navigate")
+                                            .font(.caption)
+                                            .foregroundColor(.white)
+                                        Button("Got it") {
+                                            withAnimation {
+                                                showScrollIndicator = false
+                                                hasInteracted = true
+                                            }
+                                        }
+                                        .font(.caption)
+                                        .foregroundColor(.white)
+                                        .padding(.top, 4)
+                                    }
+                                    .padding()
+                                    .background(Color.black.opacity(0.7))
+                                    .cornerRadius(10)
+                                    .padding()
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("PDF Viewer")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") {
+                                showPDFViewer = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
