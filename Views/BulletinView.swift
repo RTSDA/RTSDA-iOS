@@ -586,7 +586,7 @@ struct BulletinContentView: View {
     }
     
     private func processBibleVerses(_ line: String, _ nsLine: NSString) -> [ContentSegment]? {
-        let versePattern = #"(?:^|\s|[,;])\s*(?:(?:1|2|3|I|II|III|First|Second|Third)\s+)?(?:Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|(?:1st|2nd|1|2)\s*Samuel|(?:1st|2nd|1|2)\s*Kings|(?:1st|2nd|1|2)\s*Chronicles|Ezra|Nehemiah|Esther|Job|Psalms?|Proverbs|Ecclesiastes|Song\s+of\s+Solomon|Isaiah|Jeremiah|Lamentations|Ezekiel|Daniel|Hosea|Joel|Amos|Obadiah|Jonah|Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|Matthew|Mark|Luke|John|Acts|Romans|(?:1st|2nd|1|2)\s*Corinthians|Galatians|Ephesians|Philippians|Colossians|(?:1st|2nd|1|2)\s*Thessalonians|(?:1st|2nd|1|2)\s*Timothy|Titus|Philemon|Hebrews|James|(?:1st|2nd|1|2)\s*Peter|(?:1st|2nd|3rd|1|2|3)\s*John|Jude|Revelation)s?\s+\d+(?::\d+(?:-\d+)?)?(?:\s*,\s*\d+(?::\d+(?:-\d+)?)?)*"#
+        let versePattern = #"(?:^|\s|[,;])\s*(?:(?:1|2|3|I|II|III|First|Second|Third)\s+)?(?:Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|(?:1st|2nd|1|2)\s*Samuel|(?:1st|2nd|1|2)\s*Kings|(?:1st|2nd|1|2)\s*Chronicles|Ezra|Nehemiah|Esther|Job|Psalms?|Proverbs|Ecclesiastes|Song\s+of\s+Solomon|Isaiah|Jeremiah|Lamentations|Ezekiel|Daniel|Hosea|Joel|Amos|Obadiah|Jonah|Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|Matthew|Mark|Luke|John|Acts|Romans|(?:1st|2nd|1|2)\s*Corinthians|Galatians|Ephesians|Philippians|Colossians|(?:1st|2nd|1|2)\s*Thessalonians|(?:1st|2nd|1|2)\s*Timothy|Titus|Philemon|Hebrews|James|(?:1st|2nd|1|2)\s*Peter|(?:1st|2nd|3rd|1|2|3)\s*John|Jude|Revelation)s?\s+\d+(?:[:.]\d+(?:-\d+)?)?(?:\s*,\s*\d+(?:[:.]\d+(?:-\d+)?)?)*"#
         let verseRegex = try! NSRegularExpression(pattern: versePattern, options: [.caseInsensitive])
         let verseMatches = verseRegex.matches(in: line, range: NSRange(location: 0, length: nsLine.length))
         
@@ -606,7 +606,13 @@ struct BulletinContentView: View {
             let verseText = nsLine.substring(with: match.range)
                 .trimmingCharacters(in: .whitespaces)
             
-            segments.append((id: UUID(), text: verseText, type: .bibleVerse, reference: verseText))
+            // Extract the complete verse reference including chapter and verse
+            let referencePattern = #"(?:(?:1|2|3|I|II|III|First|Second|Third)\s+)?(?:Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|(?:1st|2nd|1|2)\s*Samuel|(?:1st|2nd|1|2)\s*Kings|(?:1st|2nd|1|2)\s*Chronicles|Ezra|Nehemiah|Esther|Job|Psalms?|Proverbs|Ecclesiastes|Song\s+of\s+Solomon|Isaiah|Jeremiah|Lamentations|Ezekiel|Daniel|Hosea|Joel|Amos|Obadiah|Jonah|Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|Matthew|Mark|Luke|John|Acts|Romans|(?:1st|2nd|1|2)\s*Corinthians|Galatians|Ephesians|Philippians|Colossians|(?:1st|2nd|1|2)\s*Thessalonians|(?:1st|2nd|1|2)\s*Timothy|Titus|Philemon|Hebrews|James|(?:1st|2nd|1|2)\s*Peter|(?:1st|2nd|3rd|1|2|3)\s*John|Jude|Revelation)s?\s+\d+(?:[:.]\d+(?:-\d+)?)?(?:\s*,\s*\d+(?:[:.]\d+(?:-\d+)?)?)*"#
+            let referenceRegex = try! NSRegularExpression(pattern: referencePattern, options: [.caseInsensitive])
+            if let referenceMatch = referenceRegex.firstMatch(in: verseText, range: NSRange(location: 0, length: verseText.count)) {
+                let reference = (verseText as NSString).substring(with: referenceMatch.range)
+                segments.append((id: UUID(), text: verseText, type: .bibleVerse, reference: reference))
+            }
             
             lastIndex = match.range.location + match.range.length
         }
@@ -624,8 +630,9 @@ struct BulletinContentView: View {
     private func formatBibleVerse(_ verse: String) -> String {
         // Strip out translation references (e.g., "KJV")
         let cleanVerse = verse.replacingOccurrences(of: #"(?:\s+(?:KJV|NIV|ESV|NKJV|NLT|RSV|ASV|CEV|GNT|MSG|NET|NRSV|WEB|YLT|DBY|WNT|BBE|DARBY|WBS|KJ21|AKJV|ASV1901|CEB|CJB|CSB|ERV|EHV|EXB|GNV|GW|ICB|ISV|JUB|LEB|MEV|MOUNCE|NOG|OJB|RGT|TLV|VOICE|WYC|WYNN|YLT1898))"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .trimmingCharacters(in: .whitespaces)
         
-        // Convert "Romans 4:11" to "rom.4.11"
+        // Convert "Romans 4:11" to "rom.4.11" for Bible.com links
         let bookMap = [
             "Genesis": "gen", "Exodus": "exo", "Leviticus": "lev", "Numbers": "num",
             "Deuteronomy": "deu", "Joshua": "jos", "Judges": "jdg", "Ruth": "rut",
@@ -669,6 +676,8 @@ struct BulletinContentView: View {
         let reference = remainingComponents.joined(separator: "")
             .replacingOccurrences(of: ":", with: ".")
             .replacingOccurrences(of: "-", with: "-")
+            .replacingOccurrences(of: ",", with: ".")
+            .replacingOccurrences(of: " ", with: "")
         
         return "\(bookCode).\(reference)"
     }
